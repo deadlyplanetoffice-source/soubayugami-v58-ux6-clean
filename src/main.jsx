@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = '相場歪観測機 v58 UX18';
+const APP_VERSION = '相場歪観測機 v58 UX19';
 const LOCAL_SNAPSHOT_KEY = 'soubayugamiCurrentStateSnapshotV1';
 
 const DEFAULT_CODES = [
@@ -479,7 +479,7 @@ function App() {
       }
       const nextNote = { ...current, ...patch, history, source: patch?.source || current.source || 'self', updatedAt: new Date().toISOString() };
       const next = { ...prev, [String(code)]: nextNote };
-      setTimeout(() => persistAtlasSnapshot({ companyResearchNotes: next }, '図鑑メモを保存し、図鑑全体も端末保存しました'), 0);
+      setTimeout(() => { setDataTransferMsg('図鑑メモを保存しました。必要なら上部の「保存」でJSONを書き出してください'); setTimeout(() => setDataTransferMsg(''), 4200); }, 0);
       return next;
     });
   }
@@ -511,7 +511,7 @@ function App() {
       else history.push(snapshot);
       const nextNote = { ...current, ...patch, history, updatedAt: now };
       const next = { ...prev, [key]: nextNote };
-      setTimeout(() => persistAtlasSnapshot({ creditBalanceNotes: next }, '信用需給を保存し、図鑑全体も端末保存しました'), 0);
+      setTimeout(() => { setDataTransferMsg('信用需給を保存しました。必要なら上部の「保存」でJSONを書き出してください'); setTimeout(() => setDataTransferMsg(''), 4200); }, 0);
       return next;
     });
   }
@@ -911,19 +911,11 @@ function App() {
   }
 
   function saveCurrentStateLocal() {
-    persistAtlasSnapshot({}, '現在の図鑑を丸ごと端末に保存しました');
+    exportLocalData();
   }
 
   function restoreCurrentStateLocal() {
-    try {
-      const text = localStorage.getItem(LOCAL_SNAPSHOT_KEY);
-      if (!text) { setDataTransferMsg('この端末に保存済み状態がありません'); setTimeout(() => setDataTransferMsg(''), 4000); return; }
-      const data = JSON.parse(text);
-      applyLocalData(data, 'この端末の保存状態を復元しました。調査メモ・信用需給も上書き反映済みです。');
-    } catch (e) {
-      setDataTransferMsg(`端末保存の復元に失敗: ${e.message}`);
-      setTimeout(() => setDataTransferMsg(''), 6000);
-    }
+    importFileRef.current?.click();
   }
 
   function exportLocalData() {
@@ -933,12 +925,12 @@ function App() {
     const a = document.createElement('a');
     const stamp = new Date().toISOString().slice(0, 10).replaceAll('-', '');
     a.href = url;
-    a.download = `soubayugami-v58-backup-${stamp}.json`;
+    a.download = `soubayugami-atlas-${stamp}.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-    setDataTransferMsg('保存データを書き出しました');
+    setDataTransferMsg('図鑑JSONを保存しました');
     setTimeout(() => setDataTransferMsg(''), 4000);
   }
 
@@ -947,7 +939,7 @@ function App() {
     try {
       const text = await file.text();
       const data = JSON.parse(text);
-      applyLocalData(data, 'JSONを上書き読み込みしました。会社調査・信用需給も反映済みです。');
+      applyLocalData(data, '図鑑JSONを読み込みました。監視銘柄・会社調査・信用需給も上書き反映済みです。');
     } catch (e) {
       setDataTransferMsg(`読み込み失敗: ${e.message}`);
     } finally {
@@ -1058,8 +1050,8 @@ function App() {
             <div><h1>図鑑</h1><p>{watch.length}件</p></div>
             <div className="mobileHeadActions">
               <button className="smallAction" onClick={() => refresh('watch')} disabled={loading}>{loading ? '取得中' : '更新'}</button>
-              <button className="smallAction saveAction" title="監視銘柄・会社調査・信用需給・条件を端末に丸ごと保存" onClick={saveCurrentStateLocal}>全保存</button>
-              <button className="smallAction loadAction" title="端末に丸ごと保存した図鑑を読み込み" onClick={restoreCurrentStateLocal}>読込</button>
+              <button className="smallAction saveAction" title="監視銘柄・会社調査・信用需給・条件をJSONファイルに丸ごと保存" onClick={saveCurrentStateLocal}>保存</button>
+              <button className="smallAction loadAction" title="保存した図鑑JSONを読み込み" onClick={restoreCurrentStateLocal}>読込</button>
             </div>
           </div>
           {dataTransferMsg && <div className="mobileToast">{dataTransferMsg}</div>}
@@ -1076,12 +1068,12 @@ function App() {
         {mobileView === 'detail' && <section className="mobilePage">
           <div className="mobilePageHead"><button className="backBtn" onClick={() => setMobileView(mobileBackView || 'watch')}>←</button><div><h1>{selected?.code || '銘柄'} {selected?.name || ''}</h1><p>{activeMobileQuote ? `${yen(activeMobileQuote.price)} / ${pct(activeMobileQuote.changePct)}` : '詳細'}</p></div><button className="smallAction" onClick={() => selected && refresh('watch', [selected.code])}>更新</button></div>
           {selected && <div className="mobileDetailNav"><button disabled={!prevMobileQuote} onClick={() => jumpMobileDetail(prevMobileQuote)}>← {prevMobileQuote?.name || prevMobileQuote?.code || '前'}</button><button disabled={!nextMobileQuote} onClick={() => jumpMobileDetail(nextMobileQuote)}>{nextMobileQuote?.name || nextMobileQuote?.code || '次'} →</button></div>}
-          {selected ? <div className="mobileDetailCard"><Detail mobile q={activeMobileQuote} selected={selected} activeTab={detailTab} setActiveTab={setDetailTab} research={research} ir={irCache[selected.code]} irLoading={irLoading} irError={irError} dropReport={dropReport?.code === selected.code ? dropReport : null} dropLoading={dropLoading} onInvestigate={() => investigateDrop(selected.code)} onReloadIr={() => { setIrCache((prev) => { const next = { ...prev }; delete next[selected.code]; return next; }); fetchIr(selected.code); }} companyNote={companyNotes[String(selected.code)]} onUpdateCompanyNote={updateCompanyNote} onDeleteCompanyNote={deleteCompanyNote} creditNote={creditNotes[String(selected.code)]} onUpdateCreditNote={updateCreditNote} onDeleteCreditNote={deleteCreditNote} onSaveAtlas={() => persistAtlasSnapshot()} /></div> : <div className="mobileEmpty">銘柄が選択されていません。</div>}
+          {selected ? <div className="mobileDetailCard"><Detail mobile q={activeMobileQuote} selected={selected} activeTab={detailTab} setActiveTab={setDetailTab} research={research} ir={irCache[selected.code]} irLoading={irLoading} irError={irError} dropReport={dropReport?.code === selected.code ? dropReport : null} dropLoading={dropLoading} onInvestigate={() => investigateDrop(selected.code)} onReloadIr={() => { setIrCache((prev) => { const next = { ...prev }; delete next[selected.code]; return next; }); fetchIr(selected.code); }} companyNote={companyNotes[String(selected.code)]} onUpdateCompanyNote={updateCompanyNote} onDeleteCompanyNote={deleteCompanyNote} creditNote={creditNotes[String(selected.code)]} onUpdateCreditNote={updateCreditNote} onDeleteCreditNote={deleteCreditNote} onSaveAtlas={saveCurrentStateLocal} /></div> : <div className="mobileEmpty">銘柄が選択されていません。</div>}
         </section>}
 
         {mobileView === 'settings' && <section className="mobilePage">
           <div className="mobilePageHead noBack"><div><h1>保存</h1><p>図鑑データ・設定・バックアップ</p></div></div>
-          <div className="mobileSettings"><h2>図鑑保存</h2><p className="mobileHint">貼り付けた会社調査・信用需給・監視リスト・条件を、このSafari内にまとめて保存します。JSON書出は別端末移行用です。</p><button className="primary saveAtlasBig" onClick={saveCurrentStateLocal}>全保存</button><button onClick={restoreCurrentStateLocal}>端末保存を復元（上書き）</button><h2>図鑑JSONバックアップ</h2><p className="mobileHint">機種変更・別URL・PC移行用。これはファイルを書き出し/読み込みします。</p><button onClick={exportLocalData}>図鑑JSON書出</button><button onClick={() => importFileRef.current?.click()}>図鑑JSON読込（上書き）</button><input ref={importFileRef} className="hiddenFileInput" type="file" accept="application/json,.json" onChange={(e) => importLocalDataFile(e.target.files?.[0])} />{dataTransferMsg && <p>{dataTransferMsg}</p>}<h2>自動更新</h2><div className="mobileFilterChips">{REFRESH_OPTIONS.map((opt) => <button key={opt.value} className={refreshInterval === opt.value ? 'active' : ''} onClick={() => setRefreshInterval(opt.value)}>{opt.label}</button>)}</div>{intervalWarning && <p className="mobileHint">{intervalWarning}</p>}</div>
+          <div className="mobileSettings"><h2>図鑑JSON</h2><p className="mobileHint">監視銘柄・会社調査・信用需給・条件を、JSONファイルとして丸ごと保存/読み込みします。Safariのキャッシュを消す前やバージョン更新前は保存してください。</p><button className="primary saveAtlasBig" onClick={saveCurrentStateLocal}>図鑑JSON保存</button><button onClick={restoreCurrentStateLocal}>図鑑JSON読込（上書き）</button><input ref={importFileRef} className="hiddenFileInput" type="file" accept="application/json,.json" onChange={(e) => importLocalDataFile(e.target.files?.[0])} />{dataTransferMsg && <p>{dataTransferMsg}</p>}<h2>自動更新</h2><div className="mobileFilterChips">{REFRESH_OPTIONS.map((opt) => <button key={opt.value} className={refreshInterval === opt.value ? 'active' : ''} onClick={() => setRefreshInterval(opt.value)}>{opt.label}</button>)}</div>{intervalWarning && <p className="mobileHint">{intervalWarning}</p>}</div>
         </section>}
         <nav className="mobileTabBar" aria-label="主要画面">
           <button className={mobileView === 'watch' ? 'active' : ''} onClick={() => { setMobileView('watch'); refresh('watch'); }}>図鑑</button>
@@ -1143,9 +1135,9 @@ function App() {
         </div>
         <button className="refreshMainBtn" onClick={refresh} disabled={loading}>{loading ? '取得中…' : '価格更新'}</button>
         <div className="dataTools">
-          <button className="sub" onClick={saveCurrentStateLocal}>端末保存</button>
-          <button className="sub" onClick={restoreCurrentStateLocal}>端末復元</button>
-          <button className="sub" onClick={exportLocalData}>図鑑JSON書出</button>
+          <button className="sub" onClick={saveCurrentStateLocal}>図鑑JSON保存</button>
+          <button className="sub" onClick={restoreCurrentStateLocal}>JSON読込</button>
+          <button className="sub" onClick={exportLocalData}>JSON保存</button>
           <button className="sub" onClick={() => importFileRef.current?.click()}>JSON読込</button>
           <input ref={importFileRef} className="hiddenFileInput" type="file" accept="application/json,.json" onChange={(e) => importLocalDataFile(e.target.files?.[0])} />
           {dataTransferMsg && <span>{dataTransferMsg}</span>}
@@ -1224,7 +1216,7 @@ function App() {
         <div className="detailInner">
         <h2>銘柄詳細</h2>
         {!selected && <div className="empty">左の銘柄を選択してください</div>}
-        {selected && <Detail q={selectedQuote} selected={selected} activeTab={detailTab} setActiveTab={setDetailTab} research={research} ir={irCache[selected.code]} irLoading={irLoading} irError={irError} dropReport={dropReport?.code === selected.code ? dropReport : null} dropLoading={dropLoading} onInvestigate={() => investigateDrop(selected.code)} onReloadIr={() => { setIrCache((prev) => { const next = { ...prev }; delete next[selected.code]; return next; }); fetchIr(selected.code); }} companyNote={companyNotes[String(selected.code)]} onUpdateCompanyNote={updateCompanyNote} onDeleteCompanyNote={deleteCompanyNote} creditNote={creditNotes[String(selected.code)]} onUpdateCreditNote={updateCreditNote} onDeleteCreditNote={deleteCreditNote} onSaveAtlas={() => persistAtlasSnapshot()} />}
+        {selected && <Detail q={selectedQuote} selected={selected} activeTab={detailTab} setActiveTab={setDetailTab} research={research} ir={irCache[selected.code]} irLoading={irLoading} irError={irError} dropReport={dropReport?.code === selected.code ? dropReport : null} dropLoading={dropLoading} onInvestigate={() => investigateDrop(selected.code)} onReloadIr={() => { setIrCache((prev) => { const next = { ...prev }; delete next[selected.code]; return next; }); fetchIr(selected.code); }} companyNote={companyNotes[String(selected.code)]} onUpdateCompanyNote={updateCompanyNote} onDeleteCompanyNote={deleteCompanyNote} creditNote={creditNotes[String(selected.code)]} onUpdateCreditNote={updateCreditNote} onDeleteCreditNote={deleteCreditNote} onSaveAtlas={saveCurrentStateLocal} />}
         </div>
       </aside>
     </main>
