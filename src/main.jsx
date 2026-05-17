@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = '相場歪観測機 v58 UX6';
+const APP_VERSION = '相場歪観測機 v58 UX7';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -306,6 +306,8 @@ function App() {
   const importFileRef = useRef(null);
   const [dataTransferMsg, setDataTransferMsg] = useState('');
   const [controlDrawerOpen, setControlDrawerOpen] = useState(false);
+  const [mobileView, setMobileView] = useState('home');
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   useEffect(() => save('watchlist', watch), [watch]);
   useEffect(() => save('manualRows', manual), [manual]);
@@ -357,6 +359,7 @@ function App() {
     setSelected({ code: q.code, name: q.name, sector: q.sector });
     setDetailTab(tab);
     setDetailOpen(true);
+    setMobileView('detail');
     requestAnimationFrame(() => {
       document.querySelector('.panel.detail')?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
     });
@@ -736,7 +739,92 @@ function App() {
   const freshnessText = freshnessSec == null ? '未更新' : freshnessSec < 60 ? `${freshnessSec}秒前` : `${Math.floor(freshnessSec/60)}分前`;
   const freshnessClass = freshnessSec == null ? 'stale' : freshnessSec > 180 ? 'stale' : freshnessSec > 60 ? 'warn' : 'fresh';
 
-  return <div className="app">
+  const scannerTitle = scannerMode === 'state' ? '状態タグ' : scannerMode === 'trend' ? '順張り' : scannerMode === 'bottom' ? '試し玉・戻り' : '押し目・歪み';
+  const sourceSummary = scannerSource === 'watch'
+    ? `監視リスト / ${watch.length}件`
+    : `${sourceLabel(scannerSource)} / ${fmt(scannerMinPrice)}〜${fmt(nikkeiMaxPrice)}円 / 出来高${fmt(scannerMinVolume)}以上`;
+  const activeMobileQuote = selectedQuote || (selected ? quoteCache[String(selected.code)] : null);
+  const openMobileScanner = (source = scannerSource) => { setMobileView('scanner'); setScannerSource(source); refresh(source); };
+  const mobileSourceButtons = [['watch','監視'],['all','全候補'],['growth','グロース'],['prime','プライム'],['nikkei225','日経225'],['standard','スタンダード'],['topix','TOPIX近似']];
+  const mobileModeButtons = [['state','状態'],['oshime','押し目'],['bottom','試し玉'],['trend','順張り']];
+  const mobileFilterButtons = scannerMode === 'state'
+    ? [['all','全部'],['trend','上昇'],['trial','試し'],['distortion','歪み'],['avoid','回避']]
+    : scannerMode === 'trend'
+      ? [['all','全部'],['oshime','候補'],['breakout','ブレイク'],['sustained','持続'],['down','過熱'],['rr','RR']]
+      : scannerMode === 'bottom'
+        ? [['all','全部'],['trial','試し'],['rebound','戻り'],['raise','下値'],['danger','危険'],['rr','RR']]
+        : [['all','全部'],['oshime','押し目'],['down','下落'],['rr','RR']];
+
+  return <>
+    <div className="mobileApp">
+      <div className="mobileShell">
+        {mobileView === 'home' && <section className="mobileHome">
+          <div className="mobileBrand"><span>{APP_VERSION}</span><em>{lastUpdated ? `最終更新 ${lastUpdated.toLocaleTimeString('ja-JP')}` : '未更新'}</em></div>
+          <div className="mobileHero">
+            <h1>何を見る？</h1>
+            <p>iPhone版はスキャナーと銘柄詳細を分けて、必要な画面だけ開きます。</p>
+          </div>
+          <div className="mobileMenu">
+            <button className="primary" onClick={() => openMobileScanner(scannerSource)}><b>スキャナーで歪みを探す</b><span>候補をカードで縦に見る</span></button>
+            <button onClick={() => { setMobileView('watch'); refresh('watch'); }}><b>監視銘柄を見る</b><span>保有・注視銘柄を更新</span></button>
+            <button onClick={() => setMobileView('search')}><b>銘柄コードで調べる</b><span>1銘柄を追加して詳細へ</span></button>
+            <button onClick={() => setMobileView('settings')}><b>保存データ / 設定</b><span>保存書出・読込、自動更新</span></button>
+          </div>
+        </section>}
+
+        {mobileView === 'scanner' && <section className="mobilePage">
+          <div className="mobilePageHead">
+            <button className="backBtn" onClick={() => setMobileView('home')}>←</button>
+            <div><h1>スキャナー</h1><p>{scannerTitle} / {sourceSummary}</p></div>
+            <button className="smallAction" onClick={() => refresh(scannerSource)} disabled={loading}>{loading ? '取得中' : '更新'}</button>
+          </div>
+          <div className="mobileControlStrip">
+            {mobileSourceButtons.map(([k,label]) => <button key={k} className={scannerSource===k?'active':''} onClick={() => { setScannerSource(k); refresh(k); }}>{label}</button>)}
+          </div>
+          <div className="mobileModeStrip">
+            {mobileModeButtons.map(([k,label]) => <button key={k} className={scannerMode===k?'active':''} onClick={() => { setScannerMode(k); setFilter('all'); }}>{label}</button>)}
+          </div>
+          <div className="mobileFilterSummary">
+            <button onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}>{mobileFiltersOpen ? '条件を閉じる' : '条件変更'}</button>
+            <span>{rows.length}件表示</span>
+          </div>
+          {mobileFiltersOpen && <div className="mobileFilters">
+            <label>セクター<select value={scannerSector} onChange={(e) => setScannerSector(e.target.value)} disabled={scannerSource === 'watch'}>{SECTOR_OPTIONS.map(([k,label]) => <option key={k} value={k}>{label}</option>)}</select></label>
+            <label>下限<input type="number" value={scannerMinPrice} onChange={(e) => setScannerMinPrice(Number(e.target.value) || 0)} /></label>
+            <label>上限<input type="number" value={nikkeiMaxPrice} onChange={(e) => setNikkeiMaxPrice(Number(e.target.value) || 3000)} /></label>
+            <label>出来高<input type="number" value={scannerMinVolume} onChange={(e) => setScannerMinVolume(Number(e.target.value) || 0)} /></label>
+            <button className="fullAction" onClick={() => refresh(scannerSource)}>この条件で再スキャン</button>
+          </div>}
+          <div className="mobileFilterChips">{mobileFilterButtons.map(([k,label]) => <button key={k} className={filter===k?'active':''} onClick={() => setFilter(k)}>{label}</button>)}</div>
+          {error && <div className="mobileError">{error}</div>}
+          <div className="mobileCards">{rows.map((q) => <MobileQuoteCard key={q.code} q={q} mode={scannerMode} selected={selected} companyNote={companyNotes[String(q.code)]} onOpen={(tab='summary') => openDetail(q, tab)} onWatch={() => { if (!watch.some(w => String(w.code) === String(q.code))) setWatch([...watch, { code:q.code, name:q.name, sector:q.sector || '' }]); }} />)}</div>
+          {!loading && rows.length === 0 && <div className="mobileEmpty">表示できる候補がありません。条件を変えるか更新してください。</div>}
+        </section>}
+
+        {mobileView === 'watch' && <section className="mobilePage">
+          <div className="mobilePageHead"><button className="backBtn" onClick={() => setMobileView('home')}>←</button><div><h1>監視銘柄</h1><p>{watch.length}件 / 固定リスト</p></div><button className="smallAction" onClick={() => refresh('watch')} disabled={loading}>{loading ? '取得中' : '更新'}</button></div>
+          <div className="mobileCards">{(quotes.length ? quotes : watch).map((q) => <MobileQuoteCard key={q.code} q={q} mode="watch" selected={selected} companyNote={companyNotes[String(q.code)]} onOpen={(tab='summary') => openDetail(q, tab)} onWatch={() => {}} />)}</div>
+        </section>}
+
+        {mobileView === 'search' && <section className="mobilePage">
+          <div className="mobilePageHead"><button className="backBtn" onClick={() => setMobileView('home')}>←</button><div><h1>銘柄検索</h1><p>コードまたは銘柄名を追加</p></div></div>
+          <div className="mobileSearchBox"><input placeholder="例: 3687 / フィックスターズ" value={newInput} onChange={(e) => setNewInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addCode()} /><button onClick={addCode} disabled={loading}>{loading ? '検索中' : '追加'}</button></div>
+          <p className="mobileHint">追加後は監視銘柄に入ります。監視画面で更新して詳細を開けます。</p>
+        </section>}
+
+        {mobileView === 'detail' && <section className="mobilePage">
+          <div className="mobilePageHead"><button className="backBtn" onClick={() => setMobileView('scanner')}>←</button><div><h1>{selected?.code || '銘柄'} {selected?.name || ''}</h1><p>{activeMobileQuote ? `${yen(activeMobileQuote.price)} / ${pct(activeMobileQuote.changePct)}` : '詳細'}</p></div><button className="smallAction" onClick={() => selected && refresh('watch', [selected.code])}>更新</button></div>
+          {selected ? <div className="mobileDetailCard"><Detail q={activeMobileQuote} selected={selected} activeTab={detailTab} setActiveTab={setDetailTab} research={research} ir={irCache[selected.code]} irLoading={irLoading} irError={irError} dropReport={dropReport?.code === selected.code ? dropReport : null} dropLoading={dropLoading} onInvestigate={() => investigateDrop(selected.code)} onReloadIr={() => { setIrCache((prev) => { const next = { ...prev }; delete next[selected.code]; return next; }); fetchIr(selected.code); }} companyNote={companyNotes[String(selected.code)]} onUpdateCompanyNote={updateCompanyNote} onDeleteCompanyNote={deleteCompanyNote} creditNote={creditNotes[String(selected.code)]} onUpdateCreditNote={updateCreditNote} onDeleteCreditNote={deleteCreditNote} /></div> : <div className="mobileEmpty">銘柄が選択されていません。</div>}
+        </section>}
+
+        {mobileView === 'settings' && <section className="mobilePage">
+          <div className="mobilePageHead"><button className="backBtn" onClick={() => setMobileView('home')}>←</button><div><h1>保存データ / 設定</h1><p>補助機能はここに格納</p></div></div>
+          <div className="mobileSettings"><button onClick={exportLocalData}>保存書出</button><button onClick={() => importFileRef.current?.click()}>保存読込</button><input ref={importFileRef} className="hiddenFileInput" type="file" accept="application/json,.json" onChange={(e) => importLocalDataFile(e.target.files?.[0])} />{dataTransferMsg && <p>{dataTransferMsg}</p>}<h2>自動更新</h2><div className="mobileFilterChips">{REFRESH_OPTIONS.map((opt) => <button key={opt.value} className={refreshInterval === opt.value ? 'active' : ''} onClick={() => setRefreshInterval(opt.value)}>{opt.label}</button>)}</div></div>
+        </section>}
+      </div>
+    </div>
+
+    <div className="legacyApp"><div className="app">
     <header className="topbar compactTopbar">
       <div className="appVersion" title="現在のアプリ版">{APP_VERSION}</div>
       <div className="actions">
@@ -872,9 +960,47 @@ function App() {
     </main>
 
     <footer>投資助言ではありません。価格・ファンダは参考値です。</footer>
-  </div>;
+    </div></div>
+  </>;
 }
 
+
+
+function MobileQuoteCard({ q, mode, selected, companyNote, onOpen, onWatch }) {
+  const quality = buildQuality(q);
+  const score = mode === 'state' ? q.stateScore : mode === 'trend' ? q.trendScore : mode === 'bottom' ? q.bottomScore : q.score;
+  const judge = mode === 'state'
+    ? (q.statePrimary || q.stateKind || '—')
+    : mode === 'trend'
+      ? (q.trendJudge || q.trendType || '—')
+      : mode === 'bottom'
+        ? (q.bottomJudge || q.lowerBaseLabel || '—')
+        : (quality?.finalJudge || q.totalJudge || q.primaryDecision || '—');
+  const mainRR = q.bottomRR ?? q.trendRR ?? q.predictedRR;
+  const entry = q.bottomEntryPrice || q.trendEntryPrice || q.oshimePrice;
+  const danger = q.bottomDangerScore ?? q.trendDangerScore ?? quality?.dangerScore ?? q.dangerScore;
+  return <article className={`mobileQuoteCard ${selected?.code === q.code ? 'selected' : ''}`} onClick={() => onOpen('summary')}>
+    <div className="mqTop">
+      <div><b>{q.code}</b><span>{q.name || q.localName || ''}</span>{companyNote && <em>調査済</em>}</div>
+      <strong className={clsBy(q.changePct)}>{pct(q.changePct)}</strong>
+    </div>
+    <div className="mqPrice"><span>{yen(q.price)}</span><small>出来高 {fmt(q.volume)} / {fmt(q.volumeRatio, '倍')}</small></div>
+    <div className="mqMetrics">
+      <div><label>判定</label><b>{judge}</b></div>
+      <div><label>スコア</label><b>{score ?? '—'}</b></div>
+      <div><label>RR</label><b className={rrClass(mainRR)}>{rrText(mainRR)}</b></div>
+      <div><label>危険</label><b>{danger ?? '—'}</b></div>
+    </div>
+    <div className="mqSub">{entry ? `目安 ${yen(entry)}` : (q.stateReason || q.oshimeLabel || q.trendEntryLabel || '詳細で確認')}</div>
+    <div className="mqActions" onClick={(e) => e.stopPropagation()}>
+      <button onClick={() => onOpen('summary')}>詳細</button>
+      <button onClick={() => onOpen('chart')}>チャート</button>
+      <button onClick={() => onOpen('company')}>会社</button>
+      <button onClick={() => onOpen('credit')}>信用</button>
+      <button onClick={onWatch}>監視追加</button>
+    </div>
+  </article>;
+}
 
 function SortTh({ id, label, sortSpec, setSortSpec }) {
   const active = sortSpec?.key === id;

@@ -1896,3 +1896,85 @@ button {
   .mobileQuickActions { display: none; }
   .controlDrawer { display: contents; }
 }
+
+/* UX7: iPhone専用の画面切替UI。PC版は従来UIを維持。 */
+.mobileApp { display: none; }
+
+@media (max-width: 780px) {
+  .legacyApp { display: none !important; }
+  .mobileApp {
+    display: block;
+    min-height: 100vh;
+    background: #070d14;
+    color: #e7edf7;
+    padding: max(18px, env(safe-area-inset-top)) 14px calc(110px + env(safe-area-inset-bottom));
+    font-size: 16px;
+  }
+  .mobileShell { max-width: 760px; margin: 0 auto; }
+  .mobileBrand { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; padding: 6px 0 16px; }
+  .mobileBrand span { color: #ff7a3d; font-size: 20px; font-weight: 900; letter-spacing: .05em; }
+  .mobileBrand em { color: #31a852; font-style: normal; font-size: 13px; white-space: nowrap; }
+  .mobileHero { border: 1px solid #26364b; background: linear-gradient(135deg, #111b29, #0a111b); border-radius: 22px; padding: 18px; margin-bottom: 14px; }
+  .mobileHero h1 { margin: 0 0 8px; font-size: 24px; }
+  .mobileHero p { margin: 0; color: #9eb1c6; line-height: 1.55; }
+  .mobileMenu { display: grid; gap: 12px; }
+  .mobileMenu button {
+    appearance: none; border: 1px solid #28394f; background: #111b29; color: #e7edf7; border-radius: 18px;
+    padding: 16px; text-align: left; min-height: 78px; box-shadow: 0 8px 24px rgba(0,0,0,.22);
+  }
+  .mobileMenu button.primary { border-color: #ff6f35; background: linear-gradient(135deg, rgba(255,111,53,.20), rgba(17,27,41,.98)); }
+  .mobileMenu button b { display: block; font-size: 18px; margin-bottom: 6px; }
+  .mobileMenu button span { display: block; color: #9eb1c6; font-size: 13px; }
+  .mobilePageHead { position: sticky; top: 0; z-index: 10; display: grid; grid-template-columns: 42px 1fr auto; gap: 10px; align-items: center; background: rgba(7,13,20,.94); backdrop-filter: blur(10px); padding: 8px 0 12px; border-bottom: 1px solid #1d2a3a; }
+  .mobilePageHead h1 { margin: 0; font-size: 20px; }
+  .mobilePageHead p { margin: 3px 0 0; color: #9eb1c6; font-size: 12px; line-height: 1.35; }
+  .backBtn, .smallAction, .fullAction, .mobileControlStrip button, .mobileModeStrip button, .mobileFilterChips button, .mobileFilterSummary button, .mobileSettings button, .mqActions button, .mobileSearchBox button {
+    appearance: none; border: 1px solid #2a3b52; background: #132033; color: #e7edf7; border-radius: 14px; min-height: 40px; padding: 9px 12px; font-size: 14px;
+  }
+  .backBtn { width: 40px; padding: 0; font-size: 20px; }
+  .smallAction { border-color: #65c6ff; color: #dff5ff; white-space: nowrap; }
+  .mobileControlStrip, .mobileModeStrip, .mobileFilterChips { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 0 0; }
+  .mobileControlStrip button, .mobileModeStrip button, .mobileFilterChips button { flex: 0 0 auto; }
+  .mobileControlStrip button.active, .mobileModeStrip button.active, .mobileFilterChips button.active { border-color: #ff6f35; background: rgba(255,111,53,.20); color: #ffe0d2; }
+  .mobileFilterSummary { display: flex; justify-content: space-between; align-items: center; margin: 12px 0 0; color: #9eb1c6; }
+  .mobileFilters { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0; padding: 12px; border: 1px solid #26364b; border-radius: 18px; background: #0c1420; }
+  .mobileFilters label { display: grid; gap: 5px; color: #cbd7e6; font-size: 13px; }
+  .mobileFilters select, .mobileFilters input, .mobileSearchBox input { min-width: 0; width: 100%; height: 44px; border: 1px solid #2a3b52; border-radius: 13px; background: #070d14; color: #e7edf7; padding: 9px 11px; font-size: 16px; }
+  .mobileFilters .fullAction { grid-column: 1 / -1; border-color: #65c6ff; }
+  .mobileCards { display: grid; gap: 12px; margin-top: 14px; }
+  .mobileQuoteCard { border: 1px solid #26364b; border-radius: 20px; padding: 14px; background: #101a28; box-shadow: 0 8px 24px rgba(0,0,0,.22); }
+  .mobileQuoteCard.selected { border-color: #65c6ff; }
+  .mqTop { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+  .mqTop b { display: block; font-size: 20px; color: #fff; }
+  .mqTop span { display: block; color: #cbd7e6; font-size: 14px; margin-top: 2px; }
+  .mqTop em { display: inline-block; margin-top: 6px; padding: 3px 8px; border: 1px solid #2a7a53; color: #7dd99c; border-radius: 999px; font-size: 11px; font-style: normal; }
+  .mqTop strong { white-space: nowrap; font-size: 18px; }
+  .mqPrice { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; margin: 10px 0; }
+  .mqPrice span { font-size: 22px; font-weight: 900; }
+  .mqPrice small { color: #9eb1c6; text-align: right; }
+  .mqMetrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .mqMetrics div { border: 1px solid #223149; background: #0b1320; border-radius: 13px; padding: 8px; min-width: 0; }
+  .mqMetrics label { display: block; color: #8ea3bc; font-size: 11px; margin-bottom: 3px; }
+  .mqMetrics b { display: block; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mqSub { color: #ffd36b; margin: 10px 0 0; font-size: 13px; }
+  .mqActions { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; margin-top: 12px; }
+  .mqActions button { min-height: 36px; padding: 7px 4px; font-size: 12px; }
+  .mobileError, .mobileEmpty { margin: 14px 0; padding: 13px; border-radius: 16px; background: #2a1520; border: 1px solid #71394d; color: #ffd9e2; }
+  .mobileSearchBox { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 18px; }
+  .mobileHint { color: #9eb1c6; line-height: 1.6; }
+  .mobileDetailCard { margin-top: 14px; }
+  .mobileDetailCard .detailHeader, .mobileDetailCard .tabs { position: static !important; }
+  .mobileDetailCard .tabBody, .mobileDetailCard .detailInner { max-height: none !important; overflow: visible !important; }
+  .mobileDetailCard .chartPanel { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .mobileDetailCard .precisionChart { min-width: 680px; }
+  .mobileSettings { display: grid; gap: 12px; margin-top: 16px; }
+  .mobileSettings h2 { font-size: 16px; margin: 8px 0 0; }
+  .hiddenFileInput { display: none !important; }
+  .pos { color: #78e08f !important; }
+  .neg { color: #ff7979 !important; }
+  .warn { color: #ffd36b !important; }
+}
+
+@media (min-width: 781px) {
+  .legacyApp { display: block; }
+}
