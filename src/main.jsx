@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = '相場歪観測機 v58 UX16';
+const APP_VERSION = '相場歪観測機 v58 UX17';
 const LOCAL_SNAPSHOT_KEY = 'soubayugamiCurrentStateSnapshotV1';
 
 const DEFAULT_CODES = [
@@ -1054,13 +1054,15 @@ function App() {
         </section>}
 
         {mobileView === 'watch' && <section className="mobilePage">
-          <div className="mobilePageHead noBack"><div><h1>マイ図鑑</h1><p>{watch.length}件 / 育てる銘柄カード</p></div><button className="smallAction" onClick={() => refresh('watch')} disabled={loading}>{loading ? '取得中' : '更新'}</button></div>
-          <div className="mobileHotMovers">
-            <div><b>前回からの変化</b><span>{lastSeen?.at ? new Date(lastSeen.at).toLocaleString('ja-JP') : '未記録'}</span></div>
-            {!lastSeen?.at ? <div className="hotMoversEmpty"><p>まだ比較基準がありません。今の値を保存すると、次回から大きく動いた銘柄をここに出します。</p><button className="primary" onClick={markWatchSeen}>今の現在値を前回基準に保存</button></div> : watchMovers.length ? watchMovers.map(({ q, deltaPct }) => <button key={q.code} onClick={() => openDetail(q, 'summary')}><span>{q.code} {q.name || q.localName}</span><strong className={clsBy(deltaPct)}>{pct(deltaPct)}</strong></button>) : <p>前回基準から2%以上動いた監視銘柄はありません。</p>}
-            {lastSeen?.at && <button className="sub" onClick={markWatchSeen}>現在値で基準を更新</button>}
+          <div className="mobilePageHead noBack watchHead">
+            <div><h1>図鑑</h1><p>{watch.length}件</p></div>
+            <div className="mobileHeadActions">
+              <button className="smallAction" onClick={() => refresh('watch')} disabled={loading}>{loading ? '取得中' : '更新'}</button>
+              <button className="smallAction saveAction" title="監視銘柄・会社調査・信用需給・条件を端末に丸ごと保存" onClick={saveCurrentStateLocal}>全保存</button>
+              <button className="smallAction loadAction" title="端末に丸ごと保存した図鑑を読み込み" onClick={restoreCurrentStateLocal}>読込</button>
+            </div>
           </div>
-          {todayCards.length > 0 && <div className="mobileTodayCards"><div><b>今日の3枚</b><span>読みごろの図鑑カード</span></div>{todayCards.map(({ q, reason, atlas }) => <button key={q.code} onClick={() => openDetail(q, 'summary')}><span>{q.code} {q.name || q.localName}</span><em>{reason}</em><strong>{atlas.stars}</strong></button>)}</div>}
+          {dataTransferMsg && <div className="mobileToast">{dataTransferMsg}</div>}
           <div className="mobileCards">{watchQuotes.map((q, idx) => <MobileQuoteCard key={q.code} q={q} mode="watch" selected={selected} watched={true} companyNote={companyNotes[String(q.code)]} creditNote={creditNotes[String(q.code)]} miniChartMode={miniChartMode} miniChartCache={miniChartCache} miniChartLoading={miniChartLoading} onToggleMiniChart={toggleMiniChart} onOpen={(tab='summary') => openDetail(q, tab)} onWatch={() => removeFromWatch(q)} orderIndex={idx} orderTotal={watchQuotes.length} onMoveUp={() => moveWatch(q, -1)} onMoveDown={() => moveWatch(q, 1)} />)}</div>
           {!loading && watchQuotes.length === 0 && <div className="mobileEmpty">監視銘柄がありません。銘柄検索から追加してください。</div>}
         </section>}
@@ -1079,10 +1081,10 @@ function App() {
 
         {mobileView === 'settings' && <section className="mobilePage">
           <div className="mobilePageHead noBack"><div><h1>保存</h1><p>図鑑データ・設定・バックアップ</p></div></div>
-          <div className="mobileSettings"><h2>図鑑丸ごと保存</h2><p className="mobileHint">貼り付けた会社調査・信用需給・監視リスト・条件を、このSafari内にまとめて保存します。JSON書出は別端末移行用です。</p><button className="primary saveAtlasBig" onClick={saveCurrentStateLocal}>💾 図鑑を丸ごと保存</button><button onClick={restoreCurrentStateLocal}>端末保存を復元（上書き）</button><h2>図鑑JSONバックアップ</h2><p className="mobileHint">機種変更・別URL・PC移行用。これはファイルを書き出し/読み込みします。</p><button onClick={exportLocalData}>図鑑JSON書出</button><button onClick={() => importFileRef.current?.click()}>図鑑JSON読込（上書き）</button><input ref={importFileRef} className="hiddenFileInput" type="file" accept="application/json,.json" onChange={(e) => importLocalDataFile(e.target.files?.[0])} />{dataTransferMsg && <p>{dataTransferMsg}</p>}<h2>自動更新</h2><div className="mobileFilterChips">{REFRESH_OPTIONS.map((opt) => <button key={opt.value} className={refreshInterval === opt.value ? 'active' : ''} onClick={() => setRefreshInterval(opt.value)}>{opt.label}</button>)}</div>{intervalWarning && <p className="mobileHint">{intervalWarning}</p>}</div>
+          <div className="mobileSettings"><h2>図鑑保存</h2><p className="mobileHint">貼り付けた会社調査・信用需給・監視リスト・条件を、このSafari内にまとめて保存します。JSON書出は別端末移行用です。</p><button className="primary saveAtlasBig" onClick={saveCurrentStateLocal}>全保存</button><button onClick={restoreCurrentStateLocal}>端末保存を復元（上書き）</button><h2>図鑑JSONバックアップ</h2><p className="mobileHint">機種変更・別URL・PC移行用。これはファイルを書き出し/読み込みします。</p><button onClick={exportLocalData}>図鑑JSON書出</button><button onClick={() => importFileRef.current?.click()}>図鑑JSON読込（上書き）</button><input ref={importFileRef} className="hiddenFileInput" type="file" accept="application/json,.json" onChange={(e) => importLocalDataFile(e.target.files?.[0])} />{dataTransferMsg && <p>{dataTransferMsg}</p>}<h2>自動更新</h2><div className="mobileFilterChips">{REFRESH_OPTIONS.map((opt) => <button key={opt.value} className={refreshInterval === opt.value ? 'active' : ''} onClick={() => setRefreshInterval(opt.value)}>{opt.label}</button>)}</div>{intervalWarning && <p className="mobileHint">{intervalWarning}</p>}</div>
         </section>}
         <nav className="mobileTabBar" aria-label="主要画面">
-          <button className={mobileView === 'watch' ? 'active' : ''} onClick={() => { setMobileView('watch'); refresh('watch'); }}>マイ図鑑</button>
+          <button className={mobileView === 'watch' ? 'active' : ''} onClick={() => { setMobileView('watch'); refresh('watch'); }}>図鑑</button>
           <button className={mobileView === 'scanner' ? 'active' : ''} onClick={() => { setMobileView('scanner'); openMobileScanner(scannerSource === 'watch' ? 'all' : scannerSource); }}>探索</button>
           <button className={mobileView === 'search' ? 'active' : ''} onClick={() => setMobileView('search')}>調べる</button>
           <button className={mobileView === 'settings' ? 'active' : ''} onClick={() => setMobileView('settings')}>保存</button>
@@ -1994,7 +1996,6 @@ function CompanyNotePanel({ q, note, onSave, onDelete, onSaveAtlas }) {
         <button title="クリップボードから回答を貼り付け" onClick={pasteRaw}>貼付</button>
         <button title="AI下書きを作成" onClick={autoResearchAI} disabled={aiLoading}>{aiLoading ? 'AI中' : 'AI案'}</button>
         <button className="aiResearchBtn" title="この銘柄の図鑑メモを保存" onClick={saveNow}>{saved ? '済' : '保存'}</button>
-        <button className="sub atlasSaveBtn" title="図鑑全体を端末に丸ごと保存" onClick={() => onSaveAtlas?.()}>💾全</button>
         {note && <button className="sub dangerMini" title="この銘柄の保存済み調査メモを削除" onClick={() => { if (window.confirm('この銘柄の保存済み調査メモを削除しますか？')) onDelete?.(); }}>削除</button>}
       </div>
     </div>
@@ -2449,7 +2450,6 @@ function CreditBalancePanel({ q, note, onSave, onDelete, onSaveAtlas }) {
         <button className="sub" title="信用需給調査プロンプトをコピー" onClick={copyCreditPrompt}>需給P</button>
         <button className="sub" title="JPXから信用データを自動取得" onClick={fetchJpxAuto} disabled={jpxLoading}>{jpxLoading ? 'JPX中' : 'JPXβ'}</button>
         <button title="この銘柄の信用需給を保存" onClick={saveNow}>{saved ? '済' : '保存'}</button>
-        <button className="sub atlasSaveBtn" title="図鑑全体を端末に丸ごと保存" onClick={() => onSaveAtlas?.()}>💾全</button>
         {note && <button className="sub dangerMini" title="この銘柄の信用需給メモを削除" onClick={() => { if (window.confirm('この銘柄の信用需給メモを削除しますか？')) onDelete?.(); }}>削除</button>}
       </div>
     </div>

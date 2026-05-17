@@ -2299,3 +2299,34 @@ button {
     font-size: 12px !important;
   }
 }
+
+/* UX17: 図鑑上部に更新・全保存・読込を集約 */
+@media (max-width: 780px) {
+  .mobilePageHead.watchHead {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+  .mobileHeadActions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+  .mobileHeadActions .smallAction {
+    min-height: 34px;
+    padding: 6px 8px;
+    border-radius: 11px;
+    font-size: 12px;
+  }
+  .mobileHeadActions .saveAction {
+    border-color: rgba(49,168,82,.65);
+    color: #c8f7d3;
+    background: rgba(49,168,82,.13);
+  }
+  .mobileHeadActions .loadAction {
+    border-color: rgba(255,211,107,.65);
+    color: #ffe6a8;
+    background: rgba(255,211,107,.11);
+  }
+}
