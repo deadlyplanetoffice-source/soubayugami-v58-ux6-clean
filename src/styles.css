@@ -1925,7 +1925,7 @@ button {
   .mobileMenu button.primary { border-color: #ff6f35; background: linear-gradient(135deg, rgba(255,111,53,.20), rgba(17,27,41,.98)); }
   .mobileMenu button b { display: block; font-size: 18px; margin-bottom: 6px; }
   .mobileMenu button span { display: block; color: #9eb1c6; font-size: 13px; }
-  .mobilePageHead { position: sticky; top: 0; z-index: 10; display: grid; grid-template-columns: 42px 1fr auto; gap: 10px; align-items: center; background: rgba(7,13,20,.94); backdrop-filter: blur(10px); padding: 8px 0 12px; border-bottom: 1px solid #1d2a3a; }
+  .mobilePageHead { position: sticky; top: 46px; z-index: 10; display: grid; grid-template-columns: 42px 1fr auto; gap: 10px; align-items: center; background: rgba(7,13,20,.94); backdrop-filter: blur(10px); padding: 8px 0 12px; border-bottom: 1px solid #1d2a3a; }
   .mobilePageHead > div { min-width: 0; }
   .mobilePageHead h1 { margin: 0; font-size: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mobilePageHead p { margin: 3px 0 0; color: #9eb1c6; font-size: 12px; line-height: 1.35; }
@@ -2065,7 +2065,7 @@ button {
   .mqMetrics div:first-child b, .mqMetrics div:nth-child(3) b { font-size: 15px; }
   .mobileCompactTabs {
     position: sticky;
-    top: 61px;
+    top: 102px;
     z-index: 9;
     grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
     gap: 5px !important;
@@ -2076,4 +2076,166 @@ button {
   }
   .mobileCompactTabs button { min-height: 38px; padding: 6px 3px !important; font-size: 12px !important; }
   .mobileGroupedPanel { display: grid; gap: 14px; }
+}
+
+/* UX12: mobile accordion detail and watch reordering */
+@media (max-width: 780px) {
+  .mqActions { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .mqActions button { font-size: 12px; }
+  .mqOrderControls {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 8px;
+    align-items: center;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed #26364b;
+  }
+  .mqOrderControls button {
+    appearance: none;
+    border: 1px solid #2a3b52;
+    border-radius: 12px;
+    background: #0d1724;
+    color: #dbeafe;
+    min-height: 36px;
+    padding: 7px 9px;
+    font-size: 12px;
+  }
+  .mqOrderControls button:disabled { opacity: .35; }
+  .mqOrderControls span { color: #9eb1c6; font-size: 12px; white-space: nowrap; }
+
+  .mobileAccordionGroup {
+    display: grid;
+    gap: 10px;
+  }
+  .mobileAccordionIntro {
+    margin: 0 0 2px;
+    color: #9eb1c6;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .mobileAccordionItem {
+    border: 1px solid #26364b;
+    border-radius: 18px;
+    background: #0c1420;
+    overflow: hidden;
+  }
+  .mobileAccordionItem.open { border-color: rgba(101,198,255,.42); background: #0f1a29; }
+  .mobileAccordionHead {
+    appearance: none;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: #e7edf7;
+    display: grid;
+    grid-template-columns: minmax(0,1fr) auto;
+    gap: 10px;
+    align-items: center;
+    padding: 13px 14px;
+    text-align: left;
+  }
+  .mobileAccordionHead span { min-width: 0; }
+  .mobileAccordionHead b { display: block; font-size: 16px; }
+  .mobileAccordionHead em { display: block; margin-top: 3px; color: #9eb1c6; font-style: normal; font-size: 12px; line-height: 1.35; }
+  .mobileAccordionHead strong {
+    border: 1px solid #2a3b52;
+    border-radius: 999px;
+    color: #dbeafe;
+    padding: 5px 9px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .mobileAccordionItem.open .mobileAccordionHead strong { border-color: #ff6f35; color: #ffe0d2; background: rgba(255,111,53,.16); }
+  .mobileAccordionBody {
+    padding: 0 12px 12px;
+    display: grid;
+    gap: 12px;
+  }
+  .mobileAccordionBody .deepCard,
+  .mobileAccordionBody .companyPanel,
+  .mobileAccordionBody .creditPanel,
+  .mobileAccordionBody .simpleNotePanel,
+  .mobileAccordionBody .chartPanel,
+  .mobileAccordionBody .summaryPanel,
+  .mobileAccordionBody section {
+    max-width: 100%;
+  }
+  .mobileAccordionBody textarea {
+    font-size: 17px !important;
+    line-height: 1.78 !important;
+  }
+}
+
+
+/* UX13: mobile fixes */
+.mobileHotMovers { margin: 10px 0 12px; padding: 12px; border: 1px solid #223246; border-radius: 16px; background: rgba(13,23,36,.84); display: grid; gap: 8px; }
+.mobileHotMovers > div { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.mobileHotMovers b { font-size: 14px; }
+.mobileHotMovers span { color: #9eb1c6; font-size: 12px; }
+.mobileHotMovers button { min-height: 38px; border-radius: 12px; }
+.mobileHotMovers button:not(.sub) { display: flex; justify-content: space-between; align-items: center; text-align: left; background: rgba(18,33,50,.9); }
+.mobileHotMovers p { margin: 0; color: #9eb1c6; font-size: 13px; }
+.mobileAccordionGroup { display: grid; gap: 10px; }
+.mobileAccordionItem.open { border-color: #3f79b8; }
+.companyActions button[disabled] { opacity: .65; }
+
+/* UX14: 動く銘柄図鑑 */
+@media (max-width: 780px) {
+  .atlasBadge { display: inline-flex !important; align-items: center; gap: 4px; margin-left: 0 !important; margin-top: 4px; padding: 3px 7px; border-radius: 999px; background: rgba(125,211,252,.12); color: #bfeeff; border: 1px solid rgba(125,211,252,.24); font-size: 10px !important; font-style: normal; white-space: nowrap; }
+  .atlasBadge.strong { background: rgba(255,211,107,.14); color: #ffe7a3; border-color: rgba(255,211,107,.35); }
+  .mqAtlasLine { display: grid; grid-template-columns: auto auto 1fr; gap: 8px; align-items: center; padding: 8px 10px; border: 1px solid rgba(125,211,252,.18); border-radius: 14px; background: rgba(7,18,29,.62); margin: 8px 0; }
+  .mqAtlasLine span { color: #8fb6d9; font-size: 11px; font-weight: 800; }
+  .mqAtlasLine b { color: #ffd36b; letter-spacing: .05em; font-size: 12px; }
+  .mqAtlasLine em { color: #a9bdd4; font-size: 11px; font-style: normal; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .atlasCardPanel { display: grid; gap: 12px; }
+  .atlasHeroCard { border: 1px solid rgba(125,211,252,.22); border-radius: 24px; padding: 14px; background: linear-gradient(180deg, rgba(17,32,50,.96), rgba(8,15,25,.98)); box-shadow: 0 18px 44px rgba(0,0,0,.28); }
+  .atlasHeroTop { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: start; }
+  .atlasHeroTop h2 { margin: 3px 0 2px; font-size: 20px; line-height: 1.25; color: #f5fbff; }
+  .atlasHeroTop p, .atlasSubTitle { color: #8fb6d9; margin: 0; font-size: 12px; }
+  .atlasStars { text-align: right; border: 1px solid rgba(255,211,107,.24); border-radius: 16px; padding: 8px 9px; background: rgba(255,211,107,.08); }
+  .atlasStars b { display: block; color: #ffd36b; letter-spacing: .08em; white-space: nowrap; }
+  .atlasStars span { display: block; color: #d7c994; font-size: 11px; margin-top: 2px; }
+  .atlasPriceRow { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 12px 0 8px; }
+  .atlasPriceRow strong { font-size: 24px; color: #fff; }
+  .atlasPriceRow span { color: #9fb7cf; font-size: 12px; }
+  .atlasSpark { border: 1px solid #223149; border-radius: 16px; background: #07111d; padding: 8px; margin: 8px 0 12px; }
+  .atlasSpark .sparkButton { width: 100%; border: 0; background: transparent; padding: 0; justify-content: space-between; }
+  .atlasSpark .spark { width: 100%; height: 44px; }
+  .atlasDecision { border-radius: 18px; padding: 12px; background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.08); }
+  .atlasDecision .stance { display: inline-flex; margin-bottom: 6px; }
+  .atlasDecision p { margin: 0; color: #d5e4f4; line-height: 1.55; }
+  .atlasMetricStrip { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 12px; }
+  .atlasSection { border: 1px solid #223149; border-radius: 20px; background: rgba(8,15,25,.82); padding: 13px; }
+  .atlasSectionHead { display: flex; justify-content: space-between; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .atlasSectionHead b { color: #f5fbff; }
+  .atlasSectionHead span { color: #87a7c4; font-size: 12px; }
+  .atlasSection p { color: #d5e4f4; line-height: 1.66; margin: 0; }
+  .atlasCheckGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .atlasCheckGrid span { border: 1px solid #26384f; border-radius: 12px; padding: 8px; color: #8fa8c0; background: rgba(255,255,255,.025); font-size: 12px; }
+  .atlasCheckGrid span.ok { color: #b7f7c8; border-color: rgba(120,224,143,.25); background: rgba(120,224,143,.08); }
+  .atlasMissing { margin-top: 8px !important; color: #ffd36b !important; font-size: 12px; }
+  .atlasActions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .atlasActions button { min-height: 44px; border-radius: 16px; border: 1px solid rgba(255,111,53,.38); background: rgba(255,111,53,.15); color: #ffe1d3; font-weight: 900; }
+  .companyNotePanel .smallTitle::before { content: '図鑑に書き込む / '; color: #7dd3fc; }
+}
+
+
+/* UX15: 図鑑の育成・履歴・AI下書き安全化 */
+@media (max-width: 780px) {
+  .atlasHeroCard { border-top: 4px solid #7dd3fc; }
+  .hotMoversEmpty { display: grid !important; gap: 8px; align-items: stretch !important; }
+  .hotMoversEmpty .primary { background: linear-gradient(135deg, #2563eb, #0ea5e9); color: white; border-color: rgba(125,211,252,.35); }
+  .mobileTodayCards { margin: 10px 0 12px; padding: 12px; border: 1px solid rgba(255,211,107,.22); border-radius: 16px; background: rgba(30,24,10,.72); display: grid; gap: 8px; }
+  .mobileTodayCards > div { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+  .mobileTodayCards b { color: #ffe7a3; font-size: 14px; }
+  .mobileTodayCards span { color: #d7c994; font-size: 12px; }
+  .mobileTodayCards button { display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 8px; align-items: center; min-height: 40px; text-align: left; background: rgba(48,37,13,.88); border-color: rgba(255,211,107,.24); }
+  .mobileTodayCards button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #f8fafc; }
+  .mobileTodayCards button em { color: #d7c994; font-style: normal; font-size: 11px; }
+  .mobileTodayCards button strong { color: #ffd36b; font-size: 12px; white-space: nowrap; }
+  .aiDraftReview { border: 1px solid rgba(125,211,252,.24); border-radius: 16px; padding: 12px; background: rgba(7,18,29,.68); display: grid; gap: 10px; }
+  .aiDraftReview h4 { margin: 0; color: #bfeeff; }
+  .aiDraftReview textarea { width: 100%; box-sizing: border-box; font-size: 16px; line-height: 1.7; }
+  .aiDraftReview > div { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; }
+  .mqAtlasLine { margin-top: 6px; }
 }

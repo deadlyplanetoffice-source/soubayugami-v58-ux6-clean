@@ -4,7 +4,8 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = '相場歪観測機 v58 UX10';
+const APP_VERSION = '相場歪観測機 v58 UX15';
+const LOCAL_SNAPSHOT_KEY = 'soubayugamiCurrentStateSnapshotV1';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -23,6 +24,60 @@ const pct = (v) => (v === null || v === undefined || Number.isNaN(Number(v)) ? '
 const rrText = (v) => (v === null || v === undefined || Number.isNaN(Number(v)) ? '—' : `${Number(v).toFixed(2)}倍`);
 const clsBy = (v) => (v == null ? '' : Number(v) > 0 ? 'pos' : Number(v) < 0 ? 'neg' : '');
 const rrClass = (v) => v == null ? '' : v >= 2 ? 'pos' : v < 1 ? 'neg' : 'warn';
+
+function atlasProgress(companyNote, creditNote, q = null) {
+  const raw = String(companyNote?.raw || companyNote?.summary || '').trim();
+  const creditRaw = String(creditNote?.raw || creditNote?.sourceText || '').trim();
+  const sectionHasBody = (labelPattern) => {
+    if (!raw) return false;
+    const lines = raw.split(/\r?\n/);
+    const idx = lines.findIndex((line) => labelPattern.test(line));
+    if (idx < 0) return false;
+    const body = lines.slice(idx + 1, idx + 6).join(' ').replace(/[【】#＊*`>|\s]/g, '');
+    return body.length >= 30;
+  };
+  const checks = [
+    { key: 'base', label: '会社の核', ok: sectionHasBody(/会社の核|事業内容/) || (!!raw && raw.length >= 80) },
+    { key: 'business', label: '稼ぎ方', ok: sectionHasBody(/稼ぎ方|事業|収益|ビジネス|主な稼ぎ方/) },
+    { key: 'material', label: '材料', ok: sectionHasBody(/成長材料|直近材料|レジーム|大型材料|ポジティブ要因|悪材料|IR/) },
+    { key: 'distortion', label: '歪み判定', ok: sectionHasBody(/歪み判定|押し目判断|自分用の暫定判断|暫定判断|試し玉|Bull|Bear/) },
+    { key: 'credit', label: '信用需給', ok: !!creditRaw || !!creditNote?.snapshot || !!creditNote?.diagnosis },
+  ];
+  const level = checks.filter((x) => x.ok).length;
+  const stars = '★★★★★'.slice(0, level) + '☆☆☆☆☆'.slice(0, 5 - level);
+  const missing = checks.filter((x) => !x.ok).map((x) => x.label);
+  return { level, stars, missing, checks, label: level >= 5 ? '完成度高' : level >= 4 ? '実戦メモ済' : level >= 3 ? '材料あり' : level >= 2 ? '基礎あり' : level >= 1 ? '入口あり' : '未調査' };
+}
+
+
+function extractAtlasCore(note, fallback = '') {
+  const raw = String(note?.raw || '').trim();
+  if (!raw) return fallback || '会社の核は未記録。図鑑に書き込むと、ここに要約を表示します。';
+  const lines = raw.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+  const keys = ['会社の核', '【会社の核】', '事業内容', '稼ぎ方', '成長材料', 'レジーム'];
+  const idx = lines.findIndex((line) => keys.some((k) => line.includes(k)));
+  const picked = idx >= 0 ? lines.slice(idx + 1, idx + 5).join(' ') : lines.slice(0, 4).join(' ');
+  const cleaned = picked.replace(/[#＊*`>|【】]/g, '').trim();
+  return cleaned.length > 180 ? `${cleaned.slice(0, 180)}…` : cleaned;
+}
+
+function sectorColor(sector = '') {
+  const s = String(sector || '');
+  if (/AI|量子|DX|ソフト/.test(s)) return '#9b6bff';
+  if (/宇宙|防衛|ドローン|SAR/.test(s)) return '#38bdf8';
+  if (/半導体|電子/.test(s)) return '#f59e0b';
+  if (/通信|NTT|5G/.test(s)) return '#22c55e';
+  if (/鉄鋼|素材|化学/.test(s)) return '#94a3b8';
+  if (/農業|水産|食品/.test(s)) return '#84cc16';
+  return '#7dd3fc';
+}
+
+
+function atlasStatusText(companyNote, creditNote) {
+  const a = atlasProgress(companyNote, creditNote);
+  return `${a.label} ${a.stars}`;
+}
+
 
 function scanMaxCandidatesFor(source, sector, minVolume, maxPrice) {
   const broad = ['prime','topix','all','standard','growth'].includes(String(source));
@@ -339,6 +394,7 @@ function App() {
   const [mobileBackView, setMobileBackView] = useState('watch');
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.matchMedia('(max-width: 780px)').matches : false);
+  const [lastSeen, setLastSeen] = useState(() => load('mobileLastSeen', { at: null, prices: {} }));
 
   useEffect(() => save('watchlist', watch), [watch]);
   useEffect(() => save('manualRows', manual), [manual]);
@@ -353,6 +409,11 @@ function App() {
   useEffect(() => save('sortSpec', sortSpec), [sortSpec]);
   useEffect(() => save('companyResearchNotes', companyNotes), [companyNotes]);
   useEffect(() => save('creditBalanceNotes', creditNotes), [creditNotes]);
+  useEffect(() => save('mobileLastSeen', lastSeen), [lastSeen]);
+
+  // UX13: 端末保存スナップショットの自動復元は停止。
+  // 理由: 監視リストを意図的に空にした場合のゾンビ復活と、起動直後refreshとの競合を避けるため。
+  // 復元は「設定 → 端末保存を復元（上書き）」で明示的に行う。
 
   useEffect(() => { selectedRef.current = selected; }, [selected]);
   useEffect(() => { const t = setInterval(() => setClockTick(Date.now()), 1000); return () => clearInterval(t); }, []);
@@ -411,7 +472,12 @@ function App() {
     if (!code) return;
     setCompanyNotes((prev) => {
       const current = normalizeResearchNote(prev[String(code)]);
-      const nextNote = { ...current, ...patch, updatedAt: new Date().toISOString() };
+      const history = Array.isArray(current.history) ? current.history.slice(-9) : [];
+      const incomingRaw = patch && Object.prototype.hasOwnProperty.call(patch, 'raw') ? String(patch.raw || '') : String(current.raw || '');
+      if (String(current.raw || '').trim() && incomingRaw.trim() && incomingRaw !== String(current.raw || '')) {
+        history.push({ raw: current.raw, savedAt: current.updatedAt || new Date().toISOString(), source: current.source || 'self' });
+      }
+      const nextNote = { ...current, ...patch, history, source: patch?.source || current.source || 'self', updatedAt: new Date().toISOString() };
       return { ...prev, [String(code)]: nextNote };
     });
   }
@@ -739,13 +805,13 @@ function App() {
   function addToWatch(q) {
     if (!q?.code) return;
     const code = String(q.code);
-    if (watch.some((w) => String(w.code) === code)) {
-      setDataTransferMsg(`${code} はすでに監視中です`);
-      setTimeout(() => setDataTransferMsg(''), 2500);
-      return;
-    }
-    setWatch([{ code: q.code, name: q.name || q.localName || q.code, sector: q.sector || '' }, ...watch]);
-    setDataTransferMsg(`${code} を監視に追加しました`);
+    let added = false;
+    setWatch((prev) => {
+      if (prev.some((w) => String(w.code) === code)) return prev;
+      added = true;
+      return [{ code: q.code, name: q.name || q.localName || q.code, sector: q.sector || '' }, ...prev];
+    });
+    setDataTransferMsg(added ? `${code} を監視に追加しました` : `${code} はすでに監視中です`);
     setTimeout(() => setDataTransferMsg(''), 2500);
   }
 
@@ -764,12 +830,30 @@ function App() {
     else addToWatch(q);
   }
 
+  function moveWatch(q, dir) {
+    if (!q?.code) return;
+    const code = String(q.code);
+    setWatch((prev) => {
+      const list = [...prev];
+      const i = list.findIndex((w) => String(w.code) === code);
+      if (i < 0) return prev;
+      const j = Math.max(0, Math.min(list.length - 1, i + dir));
+      if (i === j) return prev;
+      const [item] = list.splice(i, 1);
+      list.splice(j, 0, item);
+      return list;
+    });
+    setDataTransferMsg(`${code} の監視順を${dir < 0 ? '上' : '下'}へ移動しました`);
+    setTimeout(() => setDataTransferMsg(''), 1600);
+  }
 
 
-  function exportLocalData() {
-    const payload = {
+
+  function buildLocalPayload() {
+    return {
       app: 'soubayugami-kansokuki',
       version: APP_VERSION,
+      savedAt: new Date().toISOString(),
       exportedAt: new Date().toISOString(),
       watch,
       manual,
@@ -784,6 +868,52 @@ function App() {
       companyResearchNotes: companyNotes,
       creditBalanceNotes: creditNotes,
     };
+  }
+
+  function applyLocalData(data, message = '保存データを反映しました') {
+    if (!data || typeof data !== 'object') throw new Error('保存データの形式が不正です');
+    if (Array.isArray(data.watch)) setWatch(data.watch);
+    if (typeof data.manual === 'string') setManual(data.manual);
+    if (data.scannerMode) setScannerMode(data.scannerMode);
+    if ('refreshInterval' in data) setRefreshInterval(data.refreshInterval);
+    if (data.scannerSource) setScannerSource(data.scannerSource);
+    if ('nikkeiMaxPrice' in data) setNikkeiMaxPrice(Number(data.nikkeiMaxPrice) || 3000);
+    if ('scannerMinPrice' in data) setScannerMinPrice(Number(data.scannerMinPrice) || 0);
+    if ('scannerMinVolume' in data) setScannerMinVolume(Number(data.scannerMinVolume) || 0);
+    if (data.scannerSector) setScannerSector(data.scannerSector);
+    if (data.sortSpec && typeof data.sortSpec === 'object') setSortSpec(data.sortSpec);
+    if (data.companyResearchNotes && typeof data.companyResearchNotes === 'object') setCompanyNotes(data.companyResearchNotes);
+    if (data.creditBalanceNotes && typeof data.creditBalanceNotes === 'object') setCreditNotes(data.creditBalanceNotes);
+    try { localStorage.setItem(LOCAL_SNAPSHOT_KEY, JSON.stringify({ ...data, restoredAt: new Date().toISOString() })); } catch {}
+    setDataTransferMsg(message);
+    setTimeout(() => setDataTransferMsg(''), 6000);
+  }
+
+  function saveCurrentStateLocal() {
+    const payload = buildLocalPayload();
+    try {
+      localStorage.setItem(LOCAL_SNAPSHOT_KEY, JSON.stringify(payload));
+      setDataTransferMsg(`現在状態をこの端末に保存しました / ${new Date(payload.savedAt).toLocaleString('ja-JP')}`);
+    } catch (e) {
+      setDataTransferMsg(`端末保存に失敗: ${e.message}`);
+    }
+    setTimeout(() => setDataTransferMsg(''), 6000);
+  }
+
+  function restoreCurrentStateLocal() {
+    try {
+      const text = localStorage.getItem(LOCAL_SNAPSHOT_KEY);
+      if (!text) { setDataTransferMsg('この端末に保存済み状態がありません'); setTimeout(() => setDataTransferMsg(''), 4000); return; }
+      const data = JSON.parse(text);
+      applyLocalData(data, 'この端末の保存状態を復元しました。調査メモ・信用需給も上書き反映済みです。');
+    } catch (e) {
+      setDataTransferMsg(`端末保存の復元に失敗: ${e.message}`);
+      setTimeout(() => setDataTransferMsg(''), 6000);
+    }
+  }
+
+  function exportLocalData() {
+    const payload = buildLocalPayload();
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -803,20 +933,7 @@ function App() {
     try {
       const text = await file.text();
       const data = JSON.parse(text);
-      if (Array.isArray(data.watch)) setWatch(data.watch);
-      if (typeof data.manual === 'string') setManual(data.manual);
-      if (data.scannerMode) setScannerMode(data.scannerMode);
-      if ('refreshInterval' in data) setRefreshInterval(data.refreshInterval);
-      if (data.scannerSource) setScannerSource(data.scannerSource);
-      if ('nikkeiMaxPrice' in data) setNikkeiMaxPrice(Number(data.nikkeiMaxPrice) || 3000);
-      if ('scannerMinPrice' in data) setScannerMinPrice(Number(data.scannerMinPrice) || 0);
-      if ('scannerMinVolume' in data) setScannerMinVolume(Number(data.scannerMinVolume) || 0);
-      if (data.scannerSector) setScannerSector(data.scannerSector);
-      if (data.sortSpec && typeof data.sortSpec === 'object') setSortSpec(data.sortSpec);
-      if (data.companyResearchNotes && typeof data.companyResearchNotes === 'object') setCompanyNotes(data.companyResearchNotes);
-      if (data.creditBalanceNotes && typeof data.creditBalanceNotes === 'object') setCreditNotes(data.creditBalanceNotes);
-      setDataTransferMsg('保存データを上書き読み込みしました。会社調査・信用需給も反映済みです。');
-      setTimeout(() => setDataTransferMsg(''), 6000);
+      applyLocalData(data, 'JSONを上書き読み込みしました。会社調査・信用需給も反映済みです。');
     } catch (e) {
       setDataTransferMsg(`読み込み失敗: ${e.message}`);
     } finally {
@@ -842,6 +959,35 @@ function App() {
     : `${sourceLabel(scannerSource)} / ${fmt(scannerMinPrice)}〜${fmt(nikkeiMaxPrice)}円 / 出来高${fmt(scannerMinVolume)}以上`;
   const activeMobileQuote = selectedQuote || (selected ? quoteCache[String(selected.code)] : null);
   const watchQuotes = watch.map((w) => quotes.find((q) => String(q.code) === String(w.code)) || quoteCache[String(w.code)] || w);
+  const watchMovers = watchQuotes
+    .map((q) => {
+      const prev = Number(lastSeen?.prices?.[String(q.code)]);
+      const price = Number(q.price);
+      const deltaPct = Number.isFinite(prev) && prev > 0 && Number.isFinite(price) ? ((price - prev) / prev) * 100 : 0;
+      return { q, deltaPct };
+    })
+    .filter((x) => Math.abs(x.deltaPct) >= 2)
+    .sort((a, b) => Math.abs(b.deltaPct) - Math.abs(a.deltaPct))
+    .slice(0, 3);
+  const todayCards = watchQuotes
+    .map((q) => {
+      const atlas = atlasProgress(companyNotes[String(q.code)], creditNotes[String(q.code)], q);
+      const updated = companyNotes[String(q.code)]?.updatedAt ? new Date(companyNotes[String(q.code)].updatedAt).getTime() : 0;
+      const staleDays = updated ? Math.floor((Date.now() - updated) / 86400000) : 999;
+      const reason = atlas.level <= 2 ? `図鑑 ${atlas.stars}` : staleDays >= 30 ? `${staleDays}日未更新` : '';
+      return { q, atlas, staleDays, reason };
+    })
+    .filter((x) => x.reason)
+    .sort((a, b) => (a.atlas.level - b.atlas.level) || (b.staleDays - a.staleDays))
+    .slice(0, 3);
+
+  const markWatchSeen = () => {
+    const prices = {};
+    watchQuotes.forEach((q) => { if (Number.isFinite(Number(q.price))) prices[String(q.code)] = Number(q.price); });
+    setLastSeen({ at: new Date().toISOString(), prices });
+    setDataTransferMsg('監視銘柄の現在値を前回基準として保存しました');
+    setTimeout(() => setDataTransferMsg(''), 2500);
+  };
   const openMobileScanner = (source = 'all') => { setMobileView('scanner'); setScannerSource(source); refresh(source); };
   const mobileSourceButtons = [['watch','監視'],['all','全候補'],['growth','グロース'],['prime','プライム'],['nikkei225','日経225'],['standard','スタンダード'],['topix','TOPIX近似']];
   const mobileModeButtons = [['state','状態'],['oshime','押し目'],['bottom','試し玉'],['trend','順張り']];
@@ -861,11 +1007,11 @@ function App() {
   return <>
     {isMobile && <div className="mobileApp">
       <div className="mobileShell">
-        <div className="mobileBrand mobileBrandCompact"><span>{APP_VERSION}</span><em>{lastUpdated ? `最終更新 ${lastUpdated.toLocaleTimeString('ja-JP')}` : '未更新'}</em></div>
+        <div className="mobileBrand mobileBrandCompact"><span>{APP_VERSION}</span><em>動く銘柄図鑑 / {lastUpdated ? `最終更新 ${lastUpdated.toLocaleTimeString('ja-JP')}` : '未更新'}</em></div>
 
         {mobileView === 'scanner' && <section className="mobilePage">
           <div className="mobilePageHead noBack">
-            <div><h1>スキャナー</h1><p>{scannerTitle} / {sourceSummary}</p></div>
+            <div><h1>探索</h1><p>{scannerTitle} / {sourceSummary}</p></div>
             <button className="smallAction" onClick={() => refresh(scannerSource)} disabled={loading}>{loading ? '取得中' : '更新'}</button>
           </div>
           <div className="mobileControlStrip">
@@ -889,18 +1035,24 @@ function App() {
           <div className="mobileFilterChips">{mobileFilterButtons.map(([k,label]) => <button key={k} className={filter===k?'active':''} onClick={() => setFilter(k)}>{label}</button>)}</div>
           {error && <div className="mobileError">{error}</div>}
           {dataTransferMsg && <div className="mobileToast">{dataTransferMsg}</div>}
-          <div className="mobileCards">{rows.map((q) => <MobileQuoteCard key={q.code} q={q} mode={scannerMode} selected={selected} watched={watch.some(w => String(w.code) === String(q.code))} companyNote={companyNotes[String(q.code)]} miniChartMode={miniChartMode} miniChartCache={miniChartCache} miniChartLoading={miniChartLoading} onToggleMiniChart={toggleMiniChart} onOpen={(tab='summary') => openDetail(q, tab)} onWatch={() => toggleWatch(q)} />)}</div>
+          <div className="mobileCards">{rows.map((q) => <MobileQuoteCard key={q.code} q={q} mode={scannerMode} selected={selected} watched={watch.some(w => String(w.code) === String(q.code))} companyNote={companyNotes[String(q.code)]} creditNote={creditNotes[String(q.code)]} miniChartMode={miniChartMode} miniChartCache={miniChartCache} miniChartLoading={miniChartLoading} onToggleMiniChart={toggleMiniChart} onOpen={(tab='summary') => openDetail(q, tab)} onWatch={() => toggleWatch(q)} />)}</div>
           {!loading && rows.length === 0 && <div className="mobileEmpty">表示できる候補がありません。条件を変えるか更新してください。</div>}
         </section>}
 
         {mobileView === 'watch' && <section className="mobilePage">
-          <div className="mobilePageHead noBack"><div><h1>監視銘柄</h1><p>{watch.length}件 / 固定リスト</p></div><button className="smallAction" onClick={() => refresh('watch')} disabled={loading}>{loading ? '取得中' : '更新'}</button></div>
-          <div className="mobileCards">{watchQuotes.map((q) => <MobileQuoteCard key={q.code} q={q} mode="watch" selected={selected} watched={true} companyNote={companyNotes[String(q.code)]} miniChartMode={miniChartMode} miniChartCache={miniChartCache} miniChartLoading={miniChartLoading} onToggleMiniChart={toggleMiniChart} onOpen={(tab='summary') => openDetail(q, tab)} onWatch={() => removeFromWatch(q)} />)}</div>
+          <div className="mobilePageHead noBack"><div><h1>マイ図鑑</h1><p>{watch.length}件 / 育てる銘柄カード</p></div><button className="smallAction" onClick={() => refresh('watch')} disabled={loading}>{loading ? '取得中' : '更新'}</button></div>
+          <div className="mobileHotMovers">
+            <div><b>前回からの変化</b><span>{lastSeen?.at ? new Date(lastSeen.at).toLocaleString('ja-JP') : '未記録'}</span></div>
+            {!lastSeen?.at ? <div className="hotMoversEmpty"><p>まだ比較基準がありません。今の値を保存すると、次回から大きく動いた銘柄をここに出します。</p><button className="primary" onClick={markWatchSeen}>今の現在値を前回基準に保存</button></div> : watchMovers.length ? watchMovers.map(({ q, deltaPct }) => <button key={q.code} onClick={() => openDetail(q, 'summary')}><span>{q.code} {q.name || q.localName}</span><strong className={clsBy(deltaPct)}>{pct(deltaPct)}</strong></button>) : <p>前回基準から2%以上動いた監視銘柄はありません。</p>}
+            {lastSeen?.at && <button className="sub" onClick={markWatchSeen}>現在値で基準を更新</button>}
+          </div>
+          {todayCards.length > 0 && <div className="mobileTodayCards"><div><b>今日の3枚</b><span>読みごろの図鑑カード</span></div>{todayCards.map(({ q, reason, atlas }) => <button key={q.code} onClick={() => openDetail(q, 'summary')}><span>{q.code} {q.name || q.localName}</span><em>{reason}</em><strong>{atlas.stars}</strong></button>)}</div>}
+          <div className="mobileCards">{watchQuotes.map((q, idx) => <MobileQuoteCard key={q.code} q={q} mode="watch" selected={selected} watched={true} companyNote={companyNotes[String(q.code)]} creditNote={creditNotes[String(q.code)]} miniChartMode={miniChartMode} miniChartCache={miniChartCache} miniChartLoading={miniChartLoading} onToggleMiniChart={toggleMiniChart} onOpen={(tab='summary') => openDetail(q, tab)} onWatch={() => removeFromWatch(q)} orderIndex={idx} orderTotal={watchQuotes.length} onMoveUp={() => moveWatch(q, -1)} onMoveDown={() => moveWatch(q, 1)} />)}</div>
           {!loading && watchQuotes.length === 0 && <div className="mobileEmpty">監視銘柄がありません。銘柄検索から追加してください。</div>}
         </section>}
 
         {mobileView === 'search' && <section className="mobilePage">
-          <div className="mobilePageHead noBack"><div><h1>銘柄検索</h1><p>コードまたは銘柄名を追加</p></div></div>
+          <div className="mobilePageHead noBack"><div><h1>調べる</h1><p>コードまたは銘柄名から図鑑カード作成</p></div></div>
           <div className="mobileSearchBox"><input placeholder="例: 3687 / フィックスターズ" value={newInput} onChange={(e) => setNewInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addCode()} /><button onClick={addCode} disabled={loading}>{loading ? '検索中' : '追加'}</button></div>
           <p className="mobileHint">追加後は監視銘柄に入り、そのまま詳細画面を開きます。</p>
         </section>}
@@ -912,14 +1064,14 @@ function App() {
         </section>}
 
         {mobileView === 'settings' && <section className="mobilePage">
-          <div className="mobilePageHead noBack"><div><h1>保存データ / 設定</h1><p>補助機能はここに格納</p></div></div>
-          <div className="mobileSettings"><button onClick={exportLocalData}>保存書出</button><button onClick={() => importFileRef.current?.click()}>保存読込（上書き）</button><input ref={importFileRef} className="hiddenFileInput" type="file" accept="application/json,.json" onChange={(e) => importLocalDataFile(e.target.files?.[0])} />{dataTransferMsg && <p>{dataTransferMsg}</p>}<h2>自動更新</h2><div className="mobileFilterChips">{REFRESH_OPTIONS.map((opt) => <button key={opt.value} className={refreshInterval === opt.value ? 'active' : ''} onClick={() => setRefreshInterval(opt.value)}>{opt.label}</button>)}</div>{intervalWarning && <p className="mobileHint">{intervalWarning}</p>}</div>
+          <div className="mobilePageHead noBack"><div><h1>保存</h1><p>図鑑データ・設定・バックアップ</p></div></div>
+          <div className="mobileSettings"><h2>端末内保存</h2><p className="mobileHint">ダウンロードなしで、このSafari内に現在のマイ図鑑・会社調査・信用需給を保存/復元します。</p><button className="primary" onClick={saveCurrentStateLocal}>現在の図鑑を端末に保存</button><button onClick={restoreCurrentStateLocal}>端末保存を復元（上書き）</button><h2>図鑑JSONバックアップ</h2><p className="mobileHint">機種変更・別URL・PC移行用。これはファイルを書き出し/読み込みします。</p><button onClick={exportLocalData}>図鑑JSON書出</button><button onClick={() => importFileRef.current?.click()}>図鑑JSON読込（上書き）</button><input ref={importFileRef} className="hiddenFileInput" type="file" accept="application/json,.json" onChange={(e) => importLocalDataFile(e.target.files?.[0])} />{dataTransferMsg && <p>{dataTransferMsg}</p>}<h2>自動更新</h2><div className="mobileFilterChips">{REFRESH_OPTIONS.map((opt) => <button key={opt.value} className={refreshInterval === opt.value ? 'active' : ''} onClick={() => setRefreshInterval(opt.value)}>{opt.label}</button>)}</div>{intervalWarning && <p className="mobileHint">{intervalWarning}</p>}</div>
         </section>}
         <nav className="mobileTabBar" aria-label="主要画面">
-          <button className={mobileView === 'watch' ? 'active' : ''} onClick={() => { setMobileView('watch'); refresh('watch'); }}>監視</button>
-          <button className={mobileView === 'scanner' ? 'active' : ''} onClick={() => { setMobileView('scanner'); if (!quotes.length) openMobileScanner(scannerSource === 'watch' ? 'all' : scannerSource); }}>スキャナー</button>
-          <button className={mobileView === 'search' ? 'active' : ''} onClick={() => setMobileView('search')}>検索</button>
-          <button className={mobileView === 'settings' ? 'active' : ''} onClick={() => setMobileView('settings')}>設定</button>
+          <button className={mobileView === 'watch' ? 'active' : ''} onClick={() => { setMobileView('watch'); refresh('watch'); }}>マイ図鑑</button>
+          <button className={mobileView === 'scanner' ? 'active' : ''} onClick={() => { setMobileView('scanner'); openMobileScanner(scannerSource === 'watch' ? 'all' : scannerSource); }}>探索</button>
+          <button className={mobileView === 'search' ? 'active' : ''} onClick={() => setMobileView('search')}>調べる</button>
+          <button className={mobileView === 'settings' ? 'active' : ''} onClick={() => setMobileView('settings')}>保存</button>
         </nav>
       </div>
     </div>}
@@ -975,8 +1127,10 @@ function App() {
         </div>
         <button className="refreshMainBtn" onClick={refresh} disabled={loading}>{loading ? '取得中…' : '価格更新'}</button>
         <div className="dataTools">
-          <button className="sub" onClick={exportLocalData}>保存書出</button>
-          <button className="sub" onClick={() => importFileRef.current?.click()}>保存読込</button>
+          <button className="sub" onClick={saveCurrentStateLocal}>端末保存</button>
+          <button className="sub" onClick={restoreCurrentStateLocal}>端末復元</button>
+          <button className="sub" onClick={exportLocalData}>図鑑JSON書出</button>
+          <button className="sub" onClick={() => importFileRef.current?.click()}>JSON読込</button>
           <input ref={importFileRef} className="hiddenFileInput" type="file" accept="application/json,.json" onChange={(e) => importLocalDataFile(e.target.files?.[0])} />
           {dataTransferMsg && <span>{dataTransferMsg}</span>}
         </div>
@@ -1066,7 +1220,7 @@ function App() {
 
 
 
-function MobileQuoteCard({ q, mode, selected, watched = false, companyNote, miniChartMode = {}, miniChartCache = {}, miniChartLoading = {}, onToggleMiniChart, onOpen, onWatch }) {
+function MobileQuoteCard({ q, mode, selected, watched = false, companyNote, creditNote, miniChartMode = {}, miniChartCache = {}, miniChartLoading = {}, onToggleMiniChart, onOpen, onWatch, orderIndex = null, orderTotal = 0, onMoveUp, onMoveDown }) {
   const quality = buildQuality(q);
   const score = mode === 'state' ? q.stateScore : mode === 'trend' ? q.trendScore : mode === 'bottom' ? q.bottomScore : q.score;
   const judge = mode === 'state'
@@ -1079,9 +1233,10 @@ function MobileQuoteCard({ q, mode, selected, watched = false, companyNote, mini
   const mainRR = q.bottomRR ?? q.trendRR ?? q.predictedRR;
   const entry = q.bottomEntryPrice || q.trendEntryPrice || q.oshimePrice;
   const danger = q.bottomDangerScore ?? q.trendDangerScore ?? quality?.dangerScore ?? q.dangerScore;
+  const atlas = useMemo(() => atlasProgress(companyNote, creditNote, q), [companyNote, creditNote, q?.code]);
   return <article className={`mobileQuoteCard ${selected?.code === q.code ? 'selected' : ''}`} onClick={() => onOpen('summary')}>
     <div className="mqTop">
-      <div><b>{q.code}</b><span>{q.name || q.localName || ''}</span>{companyNote && <em>調査済</em>}</div>
+      <div><b>{q.code}</b><span>{q.name || q.localName || ''}</span></div>
       <strong className={clsBy(q.changePct)}>{pct(q.changePct)}</strong>
     </div>
     <div className="mqPrice"><span>{yen(q.price)}</span><small>出来高 {fmt(q.volume)} / {fmt(q.volumeRatio, '倍')}</small></div>
@@ -1092,17 +1247,22 @@ function MobileQuoteCard({ q, mode, selected, watched = false, companyNote, mini
       <div><label>RR</label><b className={rrClass(mainRR)}>{rrText(mainRR)}</b></div>
       <div><label>危険</label><b>{danger ?? '—'}</b></div>
     </div>
-    <div className="mqSub">{entry ? `目安 ${yen(entry)}` : (q.stateReason || q.oshimeLabel || q.trendEntryLabel || '詳細で確認')}</div>
+    <div className="mqSub">{entry ? `目安 ${yen(entry)}` : (q.stateReason || q.oshimeLabel || q.trendEntryLabel || '詳細で確認')}</div><div className="mqAtlasLine"><span>図鑑</span><b>{atlas.stars}</b><em>{atlas.missing.length ? `未記録: ${atlas.missing.slice(0,2).join(' / ')}` : '記録充実'}</em></div>
     <div className="mqSubMetrics">
       <span>押し目 {yen(q.oshimePrice || q.bottomEntryPrice || q.trendEntryPrice || q.price)}</span>
       <span>撤退 {yen(q.rrStop || q.bottomStop)}</span>
-      <span>出来高 {fmt(q.volume)} / {fmt(q.volumeRatio, '倍')}</span>
     </div>
     <div className="mqActions" onClick={(e) => e.stopPropagation()}>
-      <button onClick={() => onOpen('summary')}>詳細</button>
+      <button onClick={() => onOpen('summary')}>図鑑</button>
       <button onClick={() => onOpen('chart')}>チャート</button>
+      <button onClick={() => onOpen('credit')}>信用</button>
       <button className={watched ? 'removeWatch' : ''} onClick={onWatch}>{watched ? '監視削除' : '監視追加'}</button>
     </div>
+    {Number.isInteger(orderIndex) && orderTotal > 1 && <div className="mqOrderControls" onClick={(e) => e.stopPropagation()}>
+      <button disabled={orderIndex <= 0} onClick={onMoveUp}>↑ 上へ</button>
+      <span>{orderIndex + 1} / {orderTotal}</span>
+      <button disabled={orderIndex >= orderTotal - 1} onClick={onMoveDown}>↓ 下へ</button>
+    </div>}
   </article>;
 }
 
@@ -1191,6 +1351,30 @@ function ScannerTable({ mode, rows, selected, onOpenDetail, sortSpec, setSortSpe
   </tr></thead><tbody>{rows.map((q) => { const quality = buildQuality(q); return <tr key={q.code} className={selected?.code === q.code ? 'selected' : ''} onClick={() => onOpenDetail(q, 'summary')}><td><b>{q.code}</b><span>{q.name}</span>{companyNotes[String(q.code)] && <em className="researchedMini">調査済</em>}</td><td><RowSpark q={q} miniChartMode={miniChartMode} miniChartCache={miniChartCache} miniChartLoading={miniChartLoading} onToggleMiniChart={onToggleMiniChart} /></td><td>{fmt(q.price)}</td><td className={clsBy(q.changePct)}>{pct(q.changePct)}</td><td><b>{fmt(q.volume)}</b><span>{fmt(q.volumeRatio, '倍')}</span></td><td><b>{fmt(q.oshimePrice)}</b><span>{q.oshimeLabel}</span></td><td className={rrClass(q.predictedRR)}>{rrText(q.predictedRR)}</td><td><span className={`score s${Math.floor((q.score || 0) / 25)}`}>{q.score}</span></td><td><span className={`pill tiny ${quality?.dangerClass || ''}`}>{quality?.dangerLabel || '—'}</span></td><td><span>{quality?.dropType || '—'}</span></td><td><span className={`pill tiny ${quality?.finalClass || ''}`}>{quality?.finalJudge || '—'}</span></td><td><DetailJump q={q} onOpenDetail={onOpenDetail} tabs={[["summary","結論"],["tech","数値"],["ir","IR"],["chart","チャート"]]} /></td></tr>; })}</tbody></table>;
 }
 
+
+function MobileAccordionGroup({ sections = [], intro = '', storageKey = '', initialOpenId = '', multi = true }) {
+  const [openIds, setOpenIds] = useState(() => new Set(initialOpenId ? [initialOpenId] : []));
+  useEffect(() => { setOpenIds(new Set(initialOpenId ? [initialOpenId] : [])); }, [storageKey, initialOpenId]);
+  const toggle = (id) => setOpenIds((prev) => {
+    const next = multi ? new Set(prev) : new Set();
+    if (prev.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  return <div className="mobileAccordionGroup">
+    {intro && <p className="mobileAccordionIntro">{intro}</p>}
+    {sections.map((sec) => {
+      const open = openIds.has(sec.id);
+      return <section key={sec.id} className={`mobileAccordionItem ${open ? 'open' : ''}`}>
+        <button className="mobileAccordionHead" onClick={() => toggle(sec.id)}>
+          <span><b>{sec.title}</b>{sec.hint && <em>{sec.hint}</em>}</span>
+          <strong>{open ? '閉じる' : '開く'}</strong>
+        </button>
+        {open && <div className="mobileAccordionBody">{typeof sec.content === 'function' ? sec.content() : sec.content}</div>}
+      </section>;
+    })}
+  </div>;
+}
+
 function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading, irError, dropReport, dropLoading, onInvestigate, onReloadIr, companyNote, onUpdateCompanyNote, onDeleteCompanyNote, creditNote, onUpdateCreditNote, onDeleteCreditNote, mobile = false }) {
   const tab = activeTab || 'summary';
   const setTab = setActiveTab;
@@ -1210,7 +1394,8 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
       : ['note','credit','tech','ir','drop'].includes(tab) ? 'confirm'
       : 'summary')
     : tab;
-  if (mobile && normalizedTab !== tab) setTimeout(() => setTab(normalizedTab), 0);
+  const deepInitialOpen = ['company','state','bottom','trend'].includes(tab) ? tab : '';
+  const confirmInitialOpen = ['note','credit','tech','ir','drop'].includes(tab) ? tab : '';
 
   return <div>
     <div className="titleLine"><b>{q.code}</b><span>{q.name || selected.name}</span></div>
@@ -1222,10 +1407,10 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
 
     <div className={mobile ? "detailTabs mobileCompactTabs" : "detailTabs"}>
       {(mobile ? [
-        ['summary', '結論'],
-        ['deep', '掘る'],
+        ['summary', '図鑑'],
+        ['deep', '深掘り'],
         ['chart', 'チャート'],
-        ['confirm', '確認'],
+        ['confirm', '記録'],
         ['links', 'リンク'],
       ] : [
         ['summary', '結論'],
@@ -1243,10 +1428,21 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
       ]).map(([k, label]) => <button key={k} className={normalizedTab === k ? 'active' : ''} onClick={() => setTab(k)}>{label}</button>)}
     </div>
 
-    {normalizedTab === 'summary' && <SummaryPanel q={q} research={research} ir={ir} />}
+    {normalizedTab === 'summary' && <SummaryPanel q={q} research={research} ir={ir} companyNote={companyNote} creditNote={creditNote} onWrite={() => setTab('note')} onCredit={() => setTab('credit')} />}
     {normalizedTab === 'chart' && <ChartPanel q={q} />}
-    {normalizedTab === 'deep' && <div className="mobileGroupedPanel"><CompanyPanel q={q} ir={ir} dropReport={dropReport} research={research} companyNote={companyNote} /><StatePanel q={q} /><BottomPanel q={q} /><TrendPanel q={q} /></div>}
-    {normalizedTab === 'confirm' && <div className="mobileGroupedPanel"><TechnicalPanel q={q} /><IrPanel ir={ir} loading={irLoading} error={irError} onReload={onReloadIr} q={q} /><DropReasonPanel report={dropReport} loading={dropLoading} onInvestigate={onInvestigate} q={q} /><CreditBalancePanel q={q} note={creditNote} onSave={(patch) => onUpdateCreditNote?.(q.code, patch)} onDelete={() => onDeleteCreditNote?.(q.code)} /><CompanyNotePanel q={q} note={companyNote} onSave={(patch) => onUpdateCompanyNote?.(q.code, patch)} onDelete={() => onDeleteCompanyNote?.(q.code)} /></div>}
+    {normalizedTab === 'deep' && <MobileAccordionGroup storageKey={`deep-${q.code}-${deepInitialOpen}`} initialOpenId={deepInitialOpen} intro="項目を選ぶまで中身は開きません。必要な材料だけ開いて確認します。" sections={[
+      { id: 'company', title: '会社/材料', hint: '会社の核・材料・保存済み調査サマリー', content: () => <CompanyPanel q={q} ir={ir} dropReport={dropReport} research={research} companyNote={companyNote} /> },
+      { id: 'state', title: '状態/歪み', hint: '状態タグ・歪みの理由', content: () => <StatePanel q={q} /> },
+      { id: 'bottom', title: '試し玉', hint: '下値・反発・危険度', content: () => <BottomPanel q={q} /> },
+      { id: 'trend', title: '順張り', hint: '上昇継続・安全度・撤退', content: () => <TrendPanel q={q} /> },
+    ]} />}
+    {normalizedTab === 'confirm' && <MobileAccordionGroup storageKey={`confirm-${q.code}-${confirmInitialOpen}`} initialOpenId={confirmInitialOpen} intro="図鑑への書き込み・信用需給記録はここです。AIは下書き係、自分で確認して保存します。" sections={[
+      { id: 'note', title: '図鑑に書き込む', hint: 'ChatGPT回答・AI下書きを確認して図鑑メモとして保存', content: () => <CompanyNotePanel q={q} note={companyNote} onSave={(patch) => onUpdateCompanyNote?.(q.code, patch)} onDelete={() => onDeleteCompanyNote?.(q.code)} /> },
+      { id: 'credit', title: '信用需給を記録する', hint: '信用データ貼り付け・抽出・保存', content: () => <CreditBalancePanel q={q} note={creditNote} onSave={(patch) => onUpdateCreditNote?.(q.code, patch)} onDelete={() => onDeleteCreditNote?.(q.code)} /> },
+      { id: 'tech', title: '価格/指標', hint: '価格帯・出来高・指標確認', content: () => <TechnicalPanel q={q} /> },
+      { id: 'ir', title: 'IR/ニュース', hint: '直近材料と更新', content: () => <IrPanel ir={ir} loading={irLoading} error={irError} onReload={onReloadIr} q={q} /> },
+      { id: 'drop', title: '急落理由', hint: '急落調査・悪材料確認', content: () => <DropReasonPanel report={dropReport} loading={dropLoading} onInvestigate={onInvestigate} q={q} /> },
+    ]} />}
     {normalizedTab === 'company' && <CompanyPanel q={q} ir={ir} dropReport={dropReport} research={research} companyNote={companyNote} />}
     {normalizedTab === 'note' && <CompanyNotePanel q={q} note={companyNote} onSave={(patch) => onUpdateCompanyNote?.(q.code, patch)} onDelete={() => onDeleteCompanyNote?.(q.code)} />}
     {normalizedTab === 'credit' && <CreditBalancePanel q={q} note={creditNote} onSave={(patch) => onUpdateCreditNote?.(q.code, patch)} onDelete={() => onDeleteCreditNote?.(q.code)} />}
@@ -1260,25 +1456,68 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
   </div>;
 }
 
-function SummaryPanel({ q, research, ir }) {
-  return <div className="summaryPanel">
-    {research && <div className="summaryDecision">
-      <span className={`stance ${research.stanceClass}`}>{research.stance}</span>
-      <p>{research.main}</p>
-    </div>}
-    <div className="summaryGrid">
-      <Metric label="押し目価格" value={yen(q.oshimePrice)} sub={q.oshimeLabel} strong />
-      <Metric label="予測RR" value={rrText(q.predictedRR)} sub={`目標 ${yen(q.rrTarget)} / 撤退 ${yen(q.rrStop)}`} strong className={rrClass(q.predictedRR)} />
-      <Metric label="BB中心" value={yen(q.bbMid)} sub="浅い押し目" />
-      <Metric label="BB下限" value={yen(q.bbLower)} sub="深い押し目" />
-    </div>
-    <FundamentalCard q={q} compact />
-    <div className="stateMini"><b>{q.statePrimary || '—'}</b><TagList items={q.stateTags} /><TagList items={q.stateActions} /></div>
-    <div className="compactReasons">
-      {(q.reasons || []).length ? q.reasons.map((r) => <span key={r}>{r}</span>) : <span>検出理由なし</span>}
-    </div>
+function SummaryPanel({ q, research, ir, companyNote, creditNote, onWrite, onCredit }) {
+  const atlas = atlasProgress(companyNote, creditNote, q);
+  const core = extractAtlasCore(companyNote, q?.sector ? `${q.sector}領域。図鑑メモを保存すると会社の核がここに出ます。` : '図鑑メモを保存すると会社の核がここに出ます。');
+  const quality = buildQuality(q) || {};
+  const action = research?.stance || quality.finalJudge || q.primaryDecision || '様子見・要確認';
+  const actionClass = research?.stanceClass || quality.finalClass || '';
+  const distortion = (q.reasons || []).slice(0, 2).join(' / ') || q.stateReason || q.oshimeLabel || '歪み理由は未検出。価格・出来高・材料を確認。';
+  return <div className="summaryPanel atlasCardPanel">
+    <section className="atlasHeroCard" style={{ borderTopColor: sectorColor(q.sector || q.market) }}>
+      <div className="atlasHeroTop">
+        <div>
+          <span className="atlasSubTitle">動く銘柄図鑑カード</span>
+          <h2>{q.code} {q.name}</h2>
+          <p>{q.sector || q.market || 'テーマ未設定'}</p>
+        </div>
+        <div className="atlasStars" title="図鑑完成度">
+          <b>{atlas.stars}</b>
+          <span>{atlas.label}</span>
+        </div>
+      </div>
+      <div className="atlasPriceRow">
+        <strong>{yen(q.price)}</strong>
+        <em className={clsBy(q.changePct)}>{pct(q.changePct)}</em>
+        <span>出来高 {fmt(q.volume)} / {fmt(q.volumeRatio, '倍')}</span>
+      </div>
+      <div className="atlasSpark"><RowSpark q={q} /></div>
+      <div className="atlasDecision">
+        <span className={`stance ${actionClass}`}>{action}</span>
+        <p>{research?.main || quality.finalReason || distortion}</p>
+      </div>
+      <div className="atlasMetricStrip">
+        <Metric label="RR" value={rrText(q.predictedRR ?? q.bottomRR ?? q.trendRR)} sub={`目標 ${yen(q.rrTarget)} / 撤退 ${yen(q.rrStop || q.bottomStop)}`} strong className={rrClass(q.predictedRR ?? q.bottomRR ?? q.trendRR)} />
+        <Metric label="押し目" value={yen(q.oshimePrice || q.bottomEntryPrice || q.trendEntryPrice)} sub={q.oshimeLabel || q.bottomJudge || q.trendEntryLabel || '目安'} strong />
+        <Metric label="危険" value={q.dangerScore ?? q.bottomDangerScore ?? q.trendDangerScore ?? '—'} sub={quality.dangerLabel || q.stateCaution || '補助'} />
+      </div>
+    </section>
+
+    <section className="atlasSection">
+      <div className="atlasSectionHead"><b>会社の核</b><span>{companyNote ? '図鑑メモより' : '未記録'}</span></div>
+      <p>{core}</p>
+    </section>
+
+    <section className="atlasSection">
+      <div className="atlasSectionHead"><b>直近の歪み</b><span>{q.statePrimary || q.oshimeLabel || '観測中'}</span></div>
+      <p>{distortion}</p>
+      <TagList items={[...(q.stateTags || []), ...(q.stateActions || [])].slice(0, 6)} />
+    </section>
+
+    <section className="atlasSection atlasCompletion">
+      <div className="atlasSectionHead"><b>図鑑完成度</b><span>{atlas.stars}</span></div>
+      <div className="atlasCheckGrid">
+        {atlas.checks.map((c) => <span key={c.key} className={c.ok ? 'ok' : ''}>{c.ok ? '✓' : '・'} {c.label}</span>)}
+      </div>
+      {atlas.missing.length > 0 && <p className="atlasMissing">未記録：{atlas.missing.join(' / ')}</p>}
+    </section>
+
     {ir?.summary && <div className={`materialSummary ${ir.summary.className}`}><b>直近材料</b><span>{ir.summary.level}</span><p>{ir.summary.text}</p></div>}
-    <div className="summaryHint">詳細は「会社/材料」「状態/歪み」「価格/指標」「IR/ニュース」へ分けました。結論タブは最小情報だけです。</div>
+
+    <div className="atlasActions">
+      <button onClick={onWrite}>図鑑に書き込む</button>
+      <button onClick={onCredit}>信用需給を記録</button>
+    </div>
   </div>;
 }
 
@@ -1691,7 +1930,10 @@ function SavedNoteSummary({ note, onOpen }) {
 function CompanyNotePanel({ q, note, onSave, onDelete }) {
   const [raw, setRaw] = useState(() => normalizeResearchNote(note).raw || '');
   const [saved, setSaved] = useState(false);
-  useEffect(() => { setRaw(normalizeResearchNote(note).raw || ''); setSaved(false); }, [q?.code, note?.updatedAt]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiState, setAiState] = useState('');
+  const [aiDraft, setAiDraft] = useState('');
+  useEffect(() => { setRaw(normalizeResearchNote(note).raw || ''); setSaved(false); setAiState(''); setAiDraft(''); }, [q?.code, note?.updatedAt]);
 
   async function pasteRaw() {
     try {
@@ -1702,8 +1944,30 @@ function CompanyNotePanel({ q, note, onSave, onDelete }) {
     }
   }
 
+  async function autoResearchAI() {
+    if (!q?.code) return;
+    setAiLoading(true);
+    setAiState('AI調査中…');
+    try {
+      const res = await fetch(`${API}/api/research`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: `${q.code} ${q.name || ''}`, quote: q })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'AI調査に失敗しました');
+      setAiDraft(String(data.text || ''));
+      setAiState('AI下書きを作成しました。採用/追記/破棄を選んでから図鑑へ保存してください。');
+    } catch (e) {
+      setAiState(`AI調査失敗：${e.message}`);
+    } finally {
+      setAiLoading(false);
+      setTimeout(() => setAiState(''), 6000);
+    }
+  }
+
   function saveNow() {
-    onSave?.({ raw });
+    onSave?.({ raw, source: 'self' });
     setSaved(true);
     setTimeout(() => setSaved(false), 1600);
   }
@@ -1711,17 +1975,20 @@ function CompanyNotePanel({ q, note, onSave, onDelete }) {
   const hasRaw = String(raw || '').trim().length > 0;
   return <div className="companyNotePanel simpleNotePanel">
     <div className="companyHeader noteHeader">
-      <div><div className="smallTitle">調査フィードバック</div><h3>{q.code} {q.name}</h3></div>
+      <div><div className="smallTitle">図鑑書き込み</div><h3>{q.code} {q.name}</h3></div>
       <div className="companyActions">
         <button onClick={pasteRaw}>回答を貼付</button>
-        <button className="aiResearchBtn" onClick={saveNow}>{saved ? '保存済み' : '貼り付けを保存'}</button>
+        <button onClick={autoResearchAI} disabled={aiLoading}>{aiLoading ? 'AI調査中' : 'AI自動調査β'}</button>
+        <button className="aiResearchBtn" onClick={saveNow}>{saved ? '保存済み' : '図鑑に保存'}</button>
         {note && <button className="sub" onClick={() => { if (window.confirm('この銘柄の保存済み調査メモを削除しますか？')) onDelete?.(); }}>削除</button>}
       </div>
     </div>
-    <label className="noteField raw onlyRaw"><span>ChatGPT回答全文・調査ログ</span><textarea rows={18} value={raw} placeholder="ここにChatGPT回答を貼り付け。Ctrl+VでもOK。" onChange={(e) => setRaw(e.target.value)} /></label>
+    {aiState && <p className="mobileHint">{aiState}</p>}
+    {aiDraft && <div className="aiDraftReview"><h4>AI下書き（採用前確認）</h4><textarea value={aiDraft} readOnly rows={10} /><div><button onClick={() => { setRaw(aiDraft); setAiDraft(''); setAiState('AI下書きを貼り付け欄に採用しました。内容確認後に保存してください。'); }}>採用して上書き</button><button onClick={() => { setRaw(`${raw}${raw.trim() ? '\n\n--- AI下書き ---\n' : ''}${aiDraft}`); setAiDraft(''); setAiState('AI下書きを現在メモに追記しました。'); }}>追記</button><button className="sub" onClick={() => { setAiDraft(''); setAiState('AI下書きを破棄しました。'); }}>破棄</button></div></div>}
+    <label className="noteField raw onlyRaw"><span>ChatGPT回答全文・調査ログ</span><textarea rows={18} value={raw} placeholder="ここにChatGPT回答・AI下書き・自分の会社メモを貼り付け。保存すると図鑑カードに反映されます。" onChange={(e) => setRaw(e.target.value)} /></label>
     <div className="noteSimpleFooter">
       <span>{hasRaw ? `${raw.length.toLocaleString('ja-JP')}文字` : '未入力'}</span>
-      <span>保存すると「調査済」表示になり、次回プロンプトにも含まれます。</span>
+      <span>保存すると図鑑完成度に反映され、次回プロンプトにも含まれます。</span>
     </div>
   </div>;
 }
