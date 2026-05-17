@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = '相場歪観測機 v58 UX17';
+const APP_VERSION = '相場歪観測機 v58 UX18';
 const LOCAL_SNAPSHOT_KEY = 'soubayugamiCurrentStateSnapshotV1';
 
 const DEFAULT_CODES = [
@@ -1237,6 +1237,7 @@ function App() {
 
 
 function MobileQuoteCard({ q, mode, selected, watched = false, companyNote, creditNote, miniChartMode = {}, miniChartCache = {}, miniChartLoading = {}, onToggleMiniChart, onOpen, onWatch, orderIndex = null, orderTotal = 0, onMoveUp, onMoveDown }) {
+  const [open, setOpen] = useState(false);
   const quality = buildQuality(q);
   const score = mode === 'state' ? q.stateScore : mode === 'trend' ? q.trendScore : mode === 'bottom' ? q.bottomScore : q.score;
   const judge = mode === 'state'
@@ -1250,34 +1251,39 @@ function MobileQuoteCard({ q, mode, selected, watched = false, companyNote, cred
   const entry = q.bottomEntryPrice || q.trendEntryPrice || q.oshimePrice;
   const danger = q.bottomDangerScore ?? q.trendDangerScore ?? quality?.dangerScore ?? q.dangerScore;
   const atlas = useMemo(() => atlasProgress(companyNote, creditNote, q), [companyNote, creditNote, q?.code]);
-  return <article className={`mobileQuoteCard ${selected?.code === q.code ? 'selected' : ''}`} onClick={() => onOpen('summary')}>
-    <div className="mqTop">
-      <div><b>{q.code}</b><span>{q.name || q.localName || ''}</span></div>
-      <strong className={clsBy(q.changePct)}>{pct(q.changePct)}</strong>
-    </div>
-    <div className="mqPrice"><span>{yen(q.price)}</span><small>出来高 {fmt(q.volume)} / {fmt(q.volumeRatio, '倍')}</small></div>
-    <div className="mqSpark" onClick={(e) => e.stopPropagation()}><RowSpark q={q} miniChartMode={miniChartMode} miniChartCache={miniChartCache} miniChartLoading={miniChartLoading} onToggleMiniChart={onToggleMiniChart} /></div>
-    <div className="mqMetrics">
-      <div><label>判定</label><b>{judge}</b></div>
-      <div><label>スコア</label><b>{score ?? '—'}</b></div>
-      <div><label>RR</label><b className={rrClass(mainRR)}>{rrText(mainRR)}</b></div>
-      <div><label>危険</label><b>{danger ?? '—'}</b></div>
-    </div>
-    <div className="mqSub">{entry ? `目安 ${yen(entry)}` : (q.stateReason || q.oshimeLabel || q.trendEntryLabel || '詳細で確認')}</div><div className="mqAtlasLine"><span>図鑑</span><b>{atlas.stars}</b><em>{atlas.missing.length ? `未記録: ${atlas.missing.slice(0,2).join(' / ')}` : '記録充実'}</em></div>
-    <div className="mqSubMetrics">
-      <span>押し目 {yen(q.oshimePrice || q.bottomEntryPrice || q.trendEntryPrice || q.price)}</span>
-      <span>撤退 {yen(q.rrStop || q.bottomStop)}</span>
-    </div>
-    <div className="mqActions" onClick={(e) => e.stopPropagation()}>
-      <button onClick={() => onOpen('summary')}>図鑑</button>
-      <button onClick={() => onOpen('chart')}>チャート</button>
-      <button onClick={() => onOpen('credit')}>信用</button>
-      <button className={watched ? 'removeWatch' : ''} onClick={onWatch}>{watched ? '監視削除' : '監視追加'}</button>
-    </div>
-    {Number.isInteger(orderIndex) && orderTotal > 1 && <div className="mqOrderControls" onClick={(e) => e.stopPropagation()}>
-      <button disabled={orderIndex <= 0} onClick={onMoveUp}>↑ 上へ</button>
-      <span>{orderIndex + 1} / {orderTotal}</span>
-      <button disabled={orderIndex >= orderTotal - 1} onClick={onMoveDown}>↓ 下へ</button>
+  return <article className={`mobileQuoteCard mobileQuoteAccordion ${open ? 'open' : 'closed'} ${selected?.code === q.code ? 'selected' : ''}`}>
+    <button className="mqFoldHead" type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+      <div className="mqTop">
+        <div><b>{q.code}</b><span>{q.name || q.localName || ''}</span></div>
+        <strong className={clsBy(q.changePct)}>{pct(q.changePct)}</strong>
+      </div>
+      <div className="mqPrice"><span>{yen(q.price)}</span><small>出来高 {fmt(q.volume)} / {fmt(q.volumeRatio, '倍')}</small></div>
+      <div className="mqSpark" onClick={(e) => e.stopPropagation()}><RowSpark q={q} miniChartMode={miniChartMode} miniChartCache={miniChartCache} miniChartLoading={miniChartLoading} onToggleMiniChart={onToggleMiniChart} /></div>
+      <div className="mqFoldHint"><span>{open ? '閉じる' : '開く'}</span><em>{judge} / {rrText(mainRR)}</em></div>
+    </button>
+    {open && <div className="mqFoldBody">
+      <div className="mqMetrics">
+        <div><label>判定</label><b>{judge}</b></div>
+        <div><label>スコア</label><b>{score ?? '—'}</b></div>
+        <div><label>RR</label><b className={rrClass(mainRR)}>{rrText(mainRR)}</b></div>
+        <div><label>危険</label><b>{danger ?? '—'}</b></div>
+      </div>
+      <div className="mqSub">{entry ? `目安 ${yen(entry)}` : (q.stateReason || q.oshimeLabel || q.trendEntryLabel || '詳細で確認')}</div><div className="mqAtlasLine"><span>図鑑</span><b>{atlas.stars}</b><em>{atlas.missing.length ? `未記録: ${atlas.missing.slice(0,2).join(' / ')}` : '記録充実'}</em></div>
+      <div className="mqSubMetrics">
+        <span>押し目 {yen(q.oshimePrice || q.bottomEntryPrice || q.trendEntryPrice || q.price)}</span>
+        <span>撤退 {yen(q.rrStop || q.bottomStop)}</span>
+      </div>
+      <div className="mqActions" onClick={(e) => e.stopPropagation()}>
+        <button onClick={() => onOpen('summary')}>図鑑</button>
+        <button onClick={() => onOpen('chart')}>チャート</button>
+        <button onClick={() => onOpen('credit')}>信用</button>
+        <button className={watched ? 'removeWatch' : ''} onClick={onWatch}>{watched ? '監視削除' : '監視追加'}</button>
+      </div>
+      {Number.isInteger(orderIndex) && orderTotal > 1 && <div className="mqOrderControls" onClick={(e) => e.stopPropagation()}>
+        <button disabled={orderIndex <= 0} onClick={onMoveUp}>↑ 上へ</button>
+        <span>{orderIndex + 1} / {orderTotal}</span>
+        <button disabled={orderIndex >= orderTotal - 1} onClick={onMoveDown}>↓ 下へ</button>
+      </div>}
     </div>}
   </article>;
 }
@@ -2683,7 +2689,8 @@ ${recentItems.length ? recentItems.map(fmtLine).join('\n') : '取得なし'}
   }
 
   function openChatGPT() {
-    window.open('https://chatgpt.com/', '_blank', 'noopener,noreferrer');
+    // iPhoneでChatGPTアプリを開く用途。Web版は開かない。
+    window.location.href = 'chatgpt://';
   }
 
   async function loadResearch(force = false) {
@@ -2721,7 +2728,7 @@ ${recentItems.length ? recentItems.map(fmtLine).join('\n') : '取得なし'}
         {loading && <span className="loadingPill">調査中…</span>}
         <button onClick={() => loadResearch(true)} disabled={loading}>{loading ? '調査中' : '再調査'}</button>
         <button className="aiResearchBtn promptMini" title="会社調査プロンプトをコピー" onClick={copyCompanyResearchPrompt}>{copyState === 'copied' ? 'P済' : '会社P'}</button>
-        <button className="sub promptMini" title="ChatGPTを開く" onClick={openChatGPT}>GPT</button>
+        <button className="sub promptMini" title="ChatGPTアプリを開く（未インストール時は反応しません）" onClick={openChatGPT}>App</button>
       </div>
     </div>
     {err && <div className="miniError">{err}</div>}
@@ -2730,7 +2737,7 @@ ${recentItems.length ? recentItems.map(fmtLine).join('\n') : '取得なし'}
     {manualPrompt && <div className="manualPromptBox"><div className="smallTitle">手動コピー用プロンプト</div><textarea rows={10} value={manualPrompt} readOnly onFocus={(e) => e.currentTarget.select()} /></div>}
     <div className="promptInfoBox">
       <b>ChatGPT調査連携</b>
-      <p>アプリ内AI APIは使わず、この銘柄の価格・IR・ニュース・取得済み会社情報をまとめた調査依頼文をコピーします。ChatGPTに貼って、回答を見ながら会社理解DBを育てる運用です。</p>
+      <p>この銘柄の価格・IR・ニュース・取得済み会社情報をまとめた調査依頼文をコピーします。AppボタンはChatGPTアプリ起動用です。Web版は開きません。</p>
     </div>
     {companyNote && <SavedNoteSummary note={companyNote} onOpen={() => window.dispatchEvent(new CustomEvent('openCompanyNoteTab'))} />}
 
