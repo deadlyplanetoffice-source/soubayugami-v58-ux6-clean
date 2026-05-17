@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = '相場歪観測機 v58 UX9';
+const APP_VERSION = '相場歪観測機 v58 UX10';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -335,8 +335,8 @@ function App() {
   const importFileRef = useRef(null);
   const [dataTransferMsg, setDataTransferMsg] = useState('');
   const [controlDrawerOpen, setControlDrawerOpen] = useState(false);
-  const [mobileView, setMobileView] = useState('home');
-  const [mobileBackView, setMobileBackView] = useState('home');
+  const [mobileView, setMobileView] = useState('watch');
+  const [mobileBackView, setMobileBackView] = useState('watch');
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.matchMedia('(max-width: 780px)').matches : false);
 
@@ -852,27 +852,19 @@ function App() {
       : scannerMode === 'bottom'
         ? [['all','全部'],['trial','試し'],['rebound','戻り'],['raise','下値'],['danger','危険'],['rr','RR']]
         : [['all','全部'],['oshime','押し目'],['down','下落'],['rr','RR']];
+  const mobileDetailList = mobileBackView === 'scanner' ? rows : watchQuotes;
+  const mobileDetailIndex = selected ? mobileDetailList.findIndex((q) => String(q.code) === String(selected.code)) : -1;
+  const prevMobileQuote = mobileDetailIndex > 0 ? mobileDetailList[mobileDetailIndex - 1] : null;
+  const nextMobileQuote = mobileDetailIndex >= 0 && mobileDetailIndex < mobileDetailList.length - 1 ? mobileDetailList[mobileDetailIndex + 1] : null;
+  const jumpMobileDetail = (q) => q && openDetail(q, detailTab || 'summary');
 
   return <>
     {isMobile && <div className="mobileApp">
       <div className="mobileShell">
-        {mobileView === 'home' && <section className="mobileHome">
-          <div className="mobileBrand"><span>{APP_VERSION}</span><em>{lastUpdated ? `最終更新 ${lastUpdated.toLocaleTimeString('ja-JP')}` : '未更新'}</em></div>
-          <div className="mobileHero">
-            <h1>何を見る？</h1>
-            <p>iPhone版はスキャナーと銘柄詳細を分けて、必要な画面だけ開きます。</p>
-          </div>
-          <div className="mobileMenu">
-            <button className="primary" onClick={() => openMobileScanner('all')}><b>スキャナーで歪みを探す</b><span>候補をカードで縦に見る</span></button>
-            <button onClick={() => { setMobileView('watch'); refresh('watch'); }}><b>監視銘柄を見る</b><span>保有・注視銘柄を更新</span></button>
-            <button onClick={() => setMobileView('search')}><b>銘柄コードで調べる</b><span>1銘柄を追加して詳細へ</span></button>
-            <button onClick={() => setMobileView('settings')}><b>保存データ / 設定</b><span>保存書出・読込、自動更新</span></button>
-          </div>
-        </section>}
+        <div className="mobileBrand mobileBrandCompact"><span>{APP_VERSION}</span><em>{lastUpdated ? `最終更新 ${lastUpdated.toLocaleTimeString('ja-JP')}` : '未更新'}</em></div>
 
         {mobileView === 'scanner' && <section className="mobilePage">
-          <div className="mobilePageHead">
-            <button className="backBtn" onClick={() => setMobileView('home')}>←</button>
+          <div className="mobilePageHead noBack">
             <div><h1>スキャナー</h1><p>{scannerTitle} / {sourceSummary}</p></div>
             <button className="smallAction" onClick={() => refresh(scannerSource)} disabled={loading}>{loading ? '取得中' : '更新'}</button>
           </div>
@@ -897,31 +889,38 @@ function App() {
           <div className="mobileFilterChips">{mobileFilterButtons.map(([k,label]) => <button key={k} className={filter===k?'active':''} onClick={() => setFilter(k)}>{label}</button>)}</div>
           {error && <div className="mobileError">{error}</div>}
           {dataTransferMsg && <div className="mobileToast">{dataTransferMsg}</div>}
-          <div className="mobileCards">{rows.map((q) => <MobileQuoteCard key={q.code} q={q} mode={scannerMode} selected={selected} watched={watch.some(w => String(w.code) === String(q.code))} companyNote={companyNotes[String(q.code)]} onOpen={(tab='summary') => openDetail(q, tab)} onWatch={() => toggleWatch(q)} />)}</div>
+          <div className="mobileCards">{rows.map((q) => <MobileQuoteCard key={q.code} q={q} mode={scannerMode} selected={selected} watched={watch.some(w => String(w.code) === String(q.code))} companyNote={companyNotes[String(q.code)]} miniChartMode={miniChartMode} miniChartCache={miniChartCache} miniChartLoading={miniChartLoading} onToggleMiniChart={toggleMiniChart} onOpen={(tab='summary') => openDetail(q, tab)} onWatch={() => toggleWatch(q)} />)}</div>
           {!loading && rows.length === 0 && <div className="mobileEmpty">表示できる候補がありません。条件を変えるか更新してください。</div>}
         </section>}
 
         {mobileView === 'watch' && <section className="mobilePage">
-          <div className="mobilePageHead"><button className="backBtn" onClick={() => setMobileView('home')}>←</button><div><h1>監視銘柄</h1><p>{watch.length}件 / 固定リスト</p></div><button className="smallAction" onClick={() => refresh('watch')} disabled={loading}>{loading ? '取得中' : '更新'}</button></div>
-          <div className="mobileCards">{watchQuotes.map((q) => <MobileQuoteCard key={q.code} q={q} mode="watch" selected={selected} watched={true} companyNote={companyNotes[String(q.code)]} onOpen={(tab='summary') => openDetail(q, tab)} onWatch={() => removeFromWatch(q)} />)}</div>
+          <div className="mobilePageHead noBack"><div><h1>監視銘柄</h1><p>{watch.length}件 / 固定リスト</p></div><button className="smallAction" onClick={() => refresh('watch')} disabled={loading}>{loading ? '取得中' : '更新'}</button></div>
+          <div className="mobileCards">{watchQuotes.map((q) => <MobileQuoteCard key={q.code} q={q} mode="watch" selected={selected} watched={true} companyNote={companyNotes[String(q.code)]} miniChartMode={miniChartMode} miniChartCache={miniChartCache} miniChartLoading={miniChartLoading} onToggleMiniChart={toggleMiniChart} onOpen={(tab='summary') => openDetail(q, tab)} onWatch={() => removeFromWatch(q)} />)}</div>
           {!loading && watchQuotes.length === 0 && <div className="mobileEmpty">監視銘柄がありません。銘柄検索から追加してください。</div>}
         </section>}
 
         {mobileView === 'search' && <section className="mobilePage">
-          <div className="mobilePageHead"><button className="backBtn" onClick={() => setMobileView('home')}>←</button><div><h1>銘柄検索</h1><p>コードまたは銘柄名を追加</p></div></div>
+          <div className="mobilePageHead noBack"><div><h1>銘柄検索</h1><p>コードまたは銘柄名を追加</p></div></div>
           <div className="mobileSearchBox"><input placeholder="例: 3687 / フィックスターズ" value={newInput} onChange={(e) => setNewInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addCode()} /><button onClick={addCode} disabled={loading}>{loading ? '検索中' : '追加'}</button></div>
           <p className="mobileHint">追加後は監視銘柄に入り、そのまま詳細画面を開きます。</p>
         </section>}
 
         {mobileView === 'detail' && <section className="mobilePage">
-          <div className="mobilePageHead"><button className="backBtn" onClick={() => setMobileView(mobileBackView || 'home')}>←</button><div><h1>{selected?.code || '銘柄'} {selected?.name || ''}</h1><p>{activeMobileQuote ? `${yen(activeMobileQuote.price)} / ${pct(activeMobileQuote.changePct)}` : '詳細'}</p></div><button className="smallAction" onClick={() => selected && refresh('watch', [selected.code])}>更新</button></div>
-          {selected ? <div className="mobileDetailCard"><Detail q={activeMobileQuote} selected={selected} activeTab={detailTab} setActiveTab={setDetailTab} research={research} ir={irCache[selected.code]} irLoading={irLoading} irError={irError} dropReport={dropReport?.code === selected.code ? dropReport : null} dropLoading={dropLoading} onInvestigate={() => investigateDrop(selected.code)} onReloadIr={() => { setIrCache((prev) => { const next = { ...prev }; delete next[selected.code]; return next; }); fetchIr(selected.code); }} companyNote={companyNotes[String(selected.code)]} onUpdateCompanyNote={updateCompanyNote} onDeleteCompanyNote={deleteCompanyNote} creditNote={creditNotes[String(selected.code)]} onUpdateCreditNote={updateCreditNote} onDeleteCreditNote={deleteCreditNote} /></div> : <div className="mobileEmpty">銘柄が選択されていません。</div>}
+          <div className="mobilePageHead"><button className="backBtn" onClick={() => setMobileView(mobileBackView || 'watch')}>←</button><div><h1>{selected?.code || '銘柄'} {selected?.name || ''}</h1><p>{activeMobileQuote ? `${yen(activeMobileQuote.price)} / ${pct(activeMobileQuote.changePct)}` : '詳細'}</p></div><button className="smallAction" onClick={() => selected && refresh('watch', [selected.code])}>更新</button></div>
+          {selected && <div className="mobileDetailNav"><button disabled={!prevMobileQuote} onClick={() => jumpMobileDetail(prevMobileQuote)}>← {prevMobileQuote?.name || prevMobileQuote?.code || '前'}</button><button disabled={!nextMobileQuote} onClick={() => jumpMobileDetail(nextMobileQuote)}>{nextMobileQuote?.name || nextMobileQuote?.code || '次'} →</button></div>}
+          {selected ? <div className="mobileDetailCard"><Detail mobile q={activeMobileQuote} selected={selected} activeTab={detailTab} setActiveTab={setDetailTab} research={research} ir={irCache[selected.code]} irLoading={irLoading} irError={irError} dropReport={dropReport?.code === selected.code ? dropReport : null} dropLoading={dropLoading} onInvestigate={() => investigateDrop(selected.code)} onReloadIr={() => { setIrCache((prev) => { const next = { ...prev }; delete next[selected.code]; return next; }); fetchIr(selected.code); }} companyNote={companyNotes[String(selected.code)]} onUpdateCompanyNote={updateCompanyNote} onDeleteCompanyNote={deleteCompanyNote} creditNote={creditNotes[String(selected.code)]} onUpdateCreditNote={updateCreditNote} onDeleteCreditNote={deleteCreditNote} /></div> : <div className="mobileEmpty">銘柄が選択されていません。</div>}
         </section>}
 
         {mobileView === 'settings' && <section className="mobilePage">
-          <div className="mobilePageHead"><button className="backBtn" onClick={() => setMobileView('home')}>←</button><div><h1>保存データ / 設定</h1><p>補助機能はここに格納</p></div></div>
+          <div className="mobilePageHead noBack"><div><h1>保存データ / 設定</h1><p>補助機能はここに格納</p></div></div>
           <div className="mobileSettings"><button onClick={exportLocalData}>保存書出</button><button onClick={() => importFileRef.current?.click()}>保存読込（上書き）</button><input ref={importFileRef} className="hiddenFileInput" type="file" accept="application/json,.json" onChange={(e) => importLocalDataFile(e.target.files?.[0])} />{dataTransferMsg && <p>{dataTransferMsg}</p>}<h2>自動更新</h2><div className="mobileFilterChips">{REFRESH_OPTIONS.map((opt) => <button key={opt.value} className={refreshInterval === opt.value ? 'active' : ''} onClick={() => setRefreshInterval(opt.value)}>{opt.label}</button>)}</div>{intervalWarning && <p className="mobileHint">{intervalWarning}</p>}</div>
         </section>}
+        <nav className="mobileTabBar" aria-label="主要画面">
+          <button className={mobileView === 'watch' ? 'active' : ''} onClick={() => { setMobileView('watch'); refresh('watch'); }}>監視</button>
+          <button className={mobileView === 'scanner' ? 'active' : ''} onClick={() => { setMobileView('scanner'); if (!quotes.length) openMobileScanner(scannerSource === 'watch' ? 'all' : scannerSource); }}>スキャナー</button>
+          <button className={mobileView === 'search' ? 'active' : ''} onClick={() => setMobileView('search')}>検索</button>
+          <button className={mobileView === 'settings' ? 'active' : ''} onClick={() => setMobileView('settings')}>設定</button>
+        </nav>
       </div>
     </div>}
 
@@ -1067,7 +1066,7 @@ function App() {
 
 
 
-function MobileQuoteCard({ q, mode, selected, watched = false, companyNote, onOpen, onWatch }) {
+function MobileQuoteCard({ q, mode, selected, watched = false, companyNote, miniChartMode = {}, miniChartCache = {}, miniChartLoading = {}, onToggleMiniChart, onOpen, onWatch }) {
   const quality = buildQuality(q);
   const score = mode === 'state' ? q.stateScore : mode === 'trend' ? q.trendScore : mode === 'bottom' ? q.bottomScore : q.score;
   const judge = mode === 'state'
@@ -1086,6 +1085,7 @@ function MobileQuoteCard({ q, mode, selected, watched = false, companyNote, onOp
       <strong className={clsBy(q.changePct)}>{pct(q.changePct)}</strong>
     </div>
     <div className="mqPrice"><span>{yen(q.price)}</span><small>出来高 {fmt(q.volume)} / {fmt(q.volumeRatio, '倍')}</small></div>
+    <div className="mqSpark" onClick={(e) => e.stopPropagation()}><RowSpark q={q} miniChartMode={miniChartMode} miniChartCache={miniChartCache} miniChartLoading={miniChartLoading} onToggleMiniChart={onToggleMiniChart} /></div>
     <div className="mqMetrics">
       <div><label>判定</label><b>{judge}</b></div>
       <div><label>スコア</label><b>{score ?? '—'}</b></div>
@@ -1191,7 +1191,7 @@ function ScannerTable({ mode, rows, selected, onOpenDetail, sortSpec, setSortSpe
   </tr></thead><tbody>{rows.map((q) => { const quality = buildQuality(q); return <tr key={q.code} className={selected?.code === q.code ? 'selected' : ''} onClick={() => onOpenDetail(q, 'summary')}><td><b>{q.code}</b><span>{q.name}</span>{companyNotes[String(q.code)] && <em className="researchedMini">調査済</em>}</td><td><RowSpark q={q} miniChartMode={miniChartMode} miniChartCache={miniChartCache} miniChartLoading={miniChartLoading} onToggleMiniChart={onToggleMiniChart} /></td><td>{fmt(q.price)}</td><td className={clsBy(q.changePct)}>{pct(q.changePct)}</td><td><b>{fmt(q.volume)}</b><span>{fmt(q.volumeRatio, '倍')}</span></td><td><b>{fmt(q.oshimePrice)}</b><span>{q.oshimeLabel}</span></td><td className={rrClass(q.predictedRR)}>{rrText(q.predictedRR)}</td><td><span className={`score s${Math.floor((q.score || 0) / 25)}`}>{q.score}</span></td><td><span className={`pill tiny ${quality?.dangerClass || ''}`}>{quality?.dangerLabel || '—'}</span></td><td><span>{quality?.dropType || '—'}</span></td><td><span className={`pill tiny ${quality?.finalClass || ''}`}>{quality?.finalJudge || '—'}</span></td><td><DetailJump q={q} onOpenDetail={onOpenDetail} tabs={[["summary","結論"],["tech","数値"],["ir","IR"],["chart","チャート"]]} /></td></tr>; })}</tbody></table>;
 }
 
-function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading, irError, dropReport, dropLoading, onInvestigate, onReloadIr, companyNote, onUpdateCompanyNote, onDeleteCompanyNote, creditNote, onUpdateCreditNote, onDeleteCreditNote }) {
+function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading, irError, dropReport, dropLoading, onInvestigate, onReloadIr, companyNote, onUpdateCompanyNote, onDeleteCompanyNote, creditNote, onUpdateCreditNote, onDeleteCreditNote, mobile = false }) {
   const tab = activeTab || 'summary';
   const setTab = setActiveTab;
   useEffect(() => { const h = () => setActiveTab('note'); window.addEventListener('openCompanyNoteTab', h); return () => window.removeEventListener('openCompanyNoteTab', h); }, [setActiveTab]);
@@ -1204,17 +1204,30 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
   const news = `https://www.google.com/search?q=${encodeURIComponent(`${q.code} ${q.name} 株 ニュース 決算`)}`;
   const minkabu = `https://minkabu.jp/stock/${q.code}`;
   const links = { kabutan, yahoo, minkabu, news, tdnet };
+  const normalizedTab = mobile
+    ? (['summary','chart','deep','confirm','links'].includes(tab) ? tab
+      : ['company','state','bottom','trend'].includes(tab) ? 'deep'
+      : ['note','credit','tech','ir','drop'].includes(tab) ? 'confirm'
+      : 'summary')
+    : tab;
+  if (mobile && normalizedTab !== tab) setTimeout(() => setTab(normalizedTab), 0);
 
   return <div>
     <div className="titleLine"><b>{q.code}</b><span>{q.name || selected.name}</span></div>
     <div className="priceLine"><span>{yen(q.price)}</span><em className={clsBy(q.changePct)}>{pct(q.changePct)}</em></div>
     <div className="badge">{scoreLabel(q.score)} / {q.score}点</div>
-    <div className="detailQuickLinks">
-      {[['summary','結論'],['chart','チャート'],['company','会社'],['ir','材料IR'],['drop','急落'],['links','外部']].map(([k,label]) => <button key={k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)}>{label}</button>)}
-    </div>
+    {!mobile && <div className="detailQuickLinks">
+      {[["summary","結論"],["chart","チャート"],["company","会社"],["ir","材料IR"],["drop","急落"],["links","外部"]].map(([k,label]) => <button key={k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)}>{label}</button>)}
+    </div>}
 
-    <div className="detailTabs">
-      {[
+    <div className={mobile ? "detailTabs mobileCompactTabs" : "detailTabs"}>
+      {(mobile ? [
+        ['summary', '結論'],
+        ['deep', '掘る'],
+        ['chart', 'チャート'],
+        ['confirm', '確認'],
+        ['links', 'リンク'],
+      ] : [
         ['summary', '結論'],
         ['chart', 'チャート'],
         ['company', '会社/材料'],
@@ -1227,21 +1240,23 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
         ['ir', 'IR/ニュース'],
         ['drop', '急落理由'],
         ['links', '外部リンク'],
-      ].map(([k, label]) => <button key={k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)}>{label}</button>)}
+      ]).map(([k, label]) => <button key={k} className={normalizedTab === k ? 'active' : ''} onClick={() => setTab(k)}>{label}</button>)}
     </div>
 
-    {tab === 'summary' && <SummaryPanel q={q} research={research} ir={ir} />}
-    {tab === 'chart' && <ChartPanel q={q} />}
-    {tab === 'company' && <CompanyPanel q={q} ir={ir} dropReport={dropReport} research={research} companyNote={companyNote} />}
-    {tab === 'note' && <CompanyNotePanel q={q} note={companyNote} onSave={(patch) => onUpdateCompanyNote?.(q.code, patch)} onDelete={() => onDeleteCompanyNote?.(q.code)} />}
-    {tab === 'credit' && <CreditBalancePanel q={q} note={creditNote} onSave={(patch) => onUpdateCreditNote?.(q.code, patch)} onDelete={() => onDeleteCreditNote?.(q.code)} />}
-    {tab === 'tech' && <TechnicalPanel q={q} />}
-    {tab === 'state' && <StatePanel q={q} />}
-    {tab === 'bottom' && <BottomPanel q={q} />}
-    {tab === 'trend' && <TrendPanel q={q} />}
-    {tab === 'ir' && <IrPanel ir={ir} loading={irLoading} error={irError} onReload={onReloadIr} q={q} />}
-    {tab === 'drop' && <DropReasonPanel report={dropReport} loading={dropLoading} onInvestigate={onInvestigate} q={q} />}
-    {tab === 'links' && <LinksPanel links={links} q={q} />}
+    {normalizedTab === 'summary' && <SummaryPanel q={q} research={research} ir={ir} />}
+    {normalizedTab === 'chart' && <ChartPanel q={q} />}
+    {normalizedTab === 'deep' && <div className="mobileGroupedPanel"><CompanyPanel q={q} ir={ir} dropReport={dropReport} research={research} companyNote={companyNote} /><StatePanel q={q} /><BottomPanel q={q} /><TrendPanel q={q} /></div>}
+    {normalizedTab === 'confirm' && <div className="mobileGroupedPanel"><TechnicalPanel q={q} /><IrPanel ir={ir} loading={irLoading} error={irError} onReload={onReloadIr} q={q} /><DropReasonPanel report={dropReport} loading={dropLoading} onInvestigate={onInvestigate} q={q} /><CreditBalancePanel q={q} note={creditNote} onSave={(patch) => onUpdateCreditNote?.(q.code, patch)} onDelete={() => onDeleteCreditNote?.(q.code)} /><CompanyNotePanel q={q} note={companyNote} onSave={(patch) => onUpdateCompanyNote?.(q.code, patch)} onDelete={() => onDeleteCompanyNote?.(q.code)} /></div>}
+    {normalizedTab === 'company' && <CompanyPanel q={q} ir={ir} dropReport={dropReport} research={research} companyNote={companyNote} />}
+    {normalizedTab === 'note' && <CompanyNotePanel q={q} note={companyNote} onSave={(patch) => onUpdateCompanyNote?.(q.code, patch)} onDelete={() => onDeleteCompanyNote?.(q.code)} />}
+    {normalizedTab === 'credit' && <CreditBalancePanel q={q} note={creditNote} onSave={(patch) => onUpdateCreditNote?.(q.code, patch)} onDelete={() => onDeleteCreditNote?.(q.code)} />}
+    {normalizedTab === 'tech' && <TechnicalPanel q={q} />}
+    {normalizedTab === 'state' && <StatePanel q={q} />}
+    {normalizedTab === 'bottom' && <BottomPanel q={q} />}
+    {normalizedTab === 'trend' && <TrendPanel q={q} />}
+    {normalizedTab === 'ir' && <IrPanel ir={ir} loading={irLoading} error={irError} onReload={onReloadIr} q={q} />}
+    {normalizedTab === 'drop' && <DropReasonPanel report={dropReport} loading={dropLoading} onInvestigate={onInvestigate} q={q} />}
+    {normalizedTab === 'links' && <LinksPanel links={links} q={q} />}
   </div>;
 }
 
