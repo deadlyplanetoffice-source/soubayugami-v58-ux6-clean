@@ -2239,3 +2239,63 @@ button {
   .aiDraftReview > div { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; }
   .mqAtlasLine { margin-top: 6px; }
 }
+
+/* UX16: 図鑑丸ごと保存 + モバイル操作ボタン圧縮 */
+@media (max-width: 780px) {
+  .companyActions.compactActions {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: flex-end !important;
+    gap: 6px !important;
+    max-width: 100% !important;
+  }
+  .companyActions.compactActions button,
+  .companyActions .promptMini {
+    min-height: 32px !important;
+    padding: 5px 8px !important;
+    border-radius: 10px !important;
+    font-size: 12px !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+  }
+  .companyActions.compactActions .aiResearchBtn,
+  .companyActions.compactActions .atlasSaveBtn {
+    font-weight: 900 !important;
+  }
+  .companyActions.compactActions .atlasSaveBtn {
+    border-color: rgba(125, 211, 252, .55) !important;
+    background: rgba(14, 165, 233, .16) !important;
+    color: #c7f2ff !important;
+  }
+  .companyActions.compactActions .dangerMini {
+    border-color: rgba(248, 113, 113, .42) !important;
+    color: #fecaca !important;
+    background: rgba(127, 29, 29, .22) !important;
+  }
+  .saveAtlasBig {
+    min-height: 48px !important;
+    font-size: 15px !important;
+    letter-spacing: .02em !important;
+  }
+  .noteHeader {
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+  .noteHeader > div:first-child {
+    min-width: 0 !important;
+  }
+  .noteHeader h3 {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    max-width: 52vw !important;
+  }
+  .aiDraftReview > div {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+  .aiDraftReview > div button {
+    min-height: 34px !important;
+    padding: 6px 8px !important;
+    font-size: 12px !important;
+  }
+}

@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = '相場歪観測機 v58 UX15';
+const APP_VERSION = '相場歪観測機 v58 UX16';
 const LOCAL_SNAPSHOT_KEY = 'soubayugamiCurrentStateSnapshotV1';
 
 const DEFAULT_CODES = [
@@ -478,7 +478,9 @@ function App() {
         history.push({ raw: current.raw, savedAt: current.updatedAt || new Date().toISOString(), source: current.source || 'self' });
       }
       const nextNote = { ...current, ...patch, history, source: patch?.source || current.source || 'self', updatedAt: new Date().toISOString() };
-      return { ...prev, [String(code)]: nextNote };
+      const next = { ...prev, [String(code)]: nextNote };
+      setTimeout(() => persistAtlasSnapshot({ companyResearchNotes: next }, '図鑑メモを保存し、図鑑全体も端末保存しました'), 0);
+      return next;
     });
   }
 
@@ -508,7 +510,9 @@ function App() {
       if (last && String(last.sourceDate || '') === String(snapshot.sourceDate || '')) history[history.length - 1] = snapshot;
       else history.push(snapshot);
       const nextNote = { ...current, ...patch, history, updatedAt: now };
-      return { ...prev, [key]: nextNote };
+      const next = { ...prev, [key]: nextNote };
+      setTimeout(() => persistAtlasSnapshot({ creditBalanceNotes: next }, '信用需給を保存し、図鑑全体も端末保存しました'), 0);
+      return next;
     });
   }
 
@@ -849,7 +853,7 @@ function App() {
 
 
 
-  function buildLocalPayload() {
+  function buildLocalPayload(overrides = {}) {
     return {
       app: 'soubayugami-kansokuki',
       version: APP_VERSION,
@@ -867,7 +871,24 @@ function App() {
       sortSpec,
       companyResearchNotes: companyNotes,
       creditBalanceNotes: creditNotes,
+      ...overrides,
     };
+  }
+
+  function persistAtlasSnapshot(overrides = {}, message = '図鑑を丸ごと端末に保存しました') {
+    try {
+      const payload = buildLocalPayload({ ...overrides, savedAt: new Date().toISOString(), exportedAt: new Date().toISOString() });
+      localStorage.setItem(LOCAL_SNAPSHOT_KEY, JSON.stringify(payload));
+      if (message) {
+        setDataTransferMsg(`${message} / ${new Date(payload.savedAt).toLocaleString('ja-JP')}`);
+        setTimeout(() => setDataTransferMsg(''), 5200);
+      }
+      return true;
+    } catch (e) {
+      setDataTransferMsg(`図鑑保存に失敗: ${e.message}`);
+      setTimeout(() => setDataTransferMsg(''), 6000);
+      return false;
+    }
   }
 
   function applyLocalData(data, message = '保存データを反映しました') {
@@ -890,14 +911,7 @@ function App() {
   }
 
   function saveCurrentStateLocal() {
-    const payload = buildLocalPayload();
-    try {
-      localStorage.setItem(LOCAL_SNAPSHOT_KEY, JSON.stringify(payload));
-      setDataTransferMsg(`現在状態をこの端末に保存しました / ${new Date(payload.savedAt).toLocaleString('ja-JP')}`);
-    } catch (e) {
-      setDataTransferMsg(`端末保存に失敗: ${e.message}`);
-    }
-    setTimeout(() => setDataTransferMsg(''), 6000);
+    persistAtlasSnapshot({}, '現在の図鑑を丸ごと端末に保存しました');
   }
 
   function restoreCurrentStateLocal() {
@@ -1060,12 +1074,12 @@ function App() {
         {mobileView === 'detail' && <section className="mobilePage">
           <div className="mobilePageHead"><button className="backBtn" onClick={() => setMobileView(mobileBackView || 'watch')}>←</button><div><h1>{selected?.code || '銘柄'} {selected?.name || ''}</h1><p>{activeMobileQuote ? `${yen(activeMobileQuote.price)} / ${pct(activeMobileQuote.changePct)}` : '詳細'}</p></div><button className="smallAction" onClick={() => selected && refresh('watch', [selected.code])}>更新</button></div>
           {selected && <div className="mobileDetailNav"><button disabled={!prevMobileQuote} onClick={() => jumpMobileDetail(prevMobileQuote)}>← {prevMobileQuote?.name || prevMobileQuote?.code || '前'}</button><button disabled={!nextMobileQuote} onClick={() => jumpMobileDetail(nextMobileQuote)}>{nextMobileQuote?.name || nextMobileQuote?.code || '次'} →</button></div>}
-          {selected ? <div className="mobileDetailCard"><Detail mobile q={activeMobileQuote} selected={selected} activeTab={detailTab} setActiveTab={setDetailTab} research={research} ir={irCache[selected.code]} irLoading={irLoading} irError={irError} dropReport={dropReport?.code === selected.code ? dropReport : null} dropLoading={dropLoading} onInvestigate={() => investigateDrop(selected.code)} onReloadIr={() => { setIrCache((prev) => { const next = { ...prev }; delete next[selected.code]; return next; }); fetchIr(selected.code); }} companyNote={companyNotes[String(selected.code)]} onUpdateCompanyNote={updateCompanyNote} onDeleteCompanyNote={deleteCompanyNote} creditNote={creditNotes[String(selected.code)]} onUpdateCreditNote={updateCreditNote} onDeleteCreditNote={deleteCreditNote} /></div> : <div className="mobileEmpty">銘柄が選択されていません。</div>}
+          {selected ? <div className="mobileDetailCard"><Detail mobile q={activeMobileQuote} selected={selected} activeTab={detailTab} setActiveTab={setDetailTab} research={research} ir={irCache[selected.code]} irLoading={irLoading} irError={irError} dropReport={dropReport?.code === selected.code ? dropReport : null} dropLoading={dropLoading} onInvestigate={() => investigateDrop(selected.code)} onReloadIr={() => { setIrCache((prev) => { const next = { ...prev }; delete next[selected.code]; return next; }); fetchIr(selected.code); }} companyNote={companyNotes[String(selected.code)]} onUpdateCompanyNote={updateCompanyNote} onDeleteCompanyNote={deleteCompanyNote} creditNote={creditNotes[String(selected.code)]} onUpdateCreditNote={updateCreditNote} onDeleteCreditNote={deleteCreditNote} onSaveAtlas={() => persistAtlasSnapshot()} /></div> : <div className="mobileEmpty">銘柄が選択されていません。</div>}
         </section>}
 
         {mobileView === 'settings' && <section className="mobilePage">
           <div className="mobilePageHead noBack"><div><h1>保存</h1><p>図鑑データ・設定・バックアップ</p></div></div>
-          <div className="mobileSettings"><h2>端末内保存</h2><p className="mobileHint">ダウンロードなしで、このSafari内に現在のマイ図鑑・会社調査・信用需給を保存/復元します。</p><button className="primary" onClick={saveCurrentStateLocal}>現在の図鑑を端末に保存</button><button onClick={restoreCurrentStateLocal}>端末保存を復元（上書き）</button><h2>図鑑JSONバックアップ</h2><p className="mobileHint">機種変更・別URL・PC移行用。これはファイルを書き出し/読み込みします。</p><button onClick={exportLocalData}>図鑑JSON書出</button><button onClick={() => importFileRef.current?.click()}>図鑑JSON読込（上書き）</button><input ref={importFileRef} className="hiddenFileInput" type="file" accept="application/json,.json" onChange={(e) => importLocalDataFile(e.target.files?.[0])} />{dataTransferMsg && <p>{dataTransferMsg}</p>}<h2>自動更新</h2><div className="mobileFilterChips">{REFRESH_OPTIONS.map((opt) => <button key={opt.value} className={refreshInterval === opt.value ? 'active' : ''} onClick={() => setRefreshInterval(opt.value)}>{opt.label}</button>)}</div>{intervalWarning && <p className="mobileHint">{intervalWarning}</p>}</div>
+          <div className="mobileSettings"><h2>図鑑丸ごと保存</h2><p className="mobileHint">貼り付けた会社調査・信用需給・監視リスト・条件を、このSafari内にまとめて保存します。JSON書出は別端末移行用です。</p><button className="primary saveAtlasBig" onClick={saveCurrentStateLocal}>💾 図鑑を丸ごと保存</button><button onClick={restoreCurrentStateLocal}>端末保存を復元（上書き）</button><h2>図鑑JSONバックアップ</h2><p className="mobileHint">機種変更・別URL・PC移行用。これはファイルを書き出し/読み込みします。</p><button onClick={exportLocalData}>図鑑JSON書出</button><button onClick={() => importFileRef.current?.click()}>図鑑JSON読込（上書き）</button><input ref={importFileRef} className="hiddenFileInput" type="file" accept="application/json,.json" onChange={(e) => importLocalDataFile(e.target.files?.[0])} />{dataTransferMsg && <p>{dataTransferMsg}</p>}<h2>自動更新</h2><div className="mobileFilterChips">{REFRESH_OPTIONS.map((opt) => <button key={opt.value} className={refreshInterval === opt.value ? 'active' : ''} onClick={() => setRefreshInterval(opt.value)}>{opt.label}</button>)}</div>{intervalWarning && <p className="mobileHint">{intervalWarning}</p>}</div>
         </section>}
         <nav className="mobileTabBar" aria-label="主要画面">
           <button className={mobileView === 'watch' ? 'active' : ''} onClick={() => { setMobileView('watch'); refresh('watch'); }}>マイ図鑑</button>
@@ -1208,7 +1222,7 @@ function App() {
         <div className="detailInner">
         <h2>銘柄詳細</h2>
         {!selected && <div className="empty">左の銘柄を選択してください</div>}
-        {selected && <Detail q={selectedQuote} selected={selected} activeTab={detailTab} setActiveTab={setDetailTab} research={research} ir={irCache[selected.code]} irLoading={irLoading} irError={irError} dropReport={dropReport?.code === selected.code ? dropReport : null} dropLoading={dropLoading} onInvestigate={() => investigateDrop(selected.code)} onReloadIr={() => { setIrCache((prev) => { const next = { ...prev }; delete next[selected.code]; return next; }); fetchIr(selected.code); }} companyNote={companyNotes[String(selected.code)]} onUpdateCompanyNote={updateCompanyNote} onDeleteCompanyNote={deleteCompanyNote} creditNote={creditNotes[String(selected.code)]} onUpdateCreditNote={updateCreditNote} onDeleteCreditNote={deleteCreditNote} />}
+        {selected && <Detail q={selectedQuote} selected={selected} activeTab={detailTab} setActiveTab={setDetailTab} research={research} ir={irCache[selected.code]} irLoading={irLoading} irError={irError} dropReport={dropReport?.code === selected.code ? dropReport : null} dropLoading={dropLoading} onInvestigate={() => investigateDrop(selected.code)} onReloadIr={() => { setIrCache((prev) => { const next = { ...prev }; delete next[selected.code]; return next; }); fetchIr(selected.code); }} companyNote={companyNotes[String(selected.code)]} onUpdateCompanyNote={updateCompanyNote} onDeleteCompanyNote={deleteCompanyNote} creditNote={creditNotes[String(selected.code)]} onUpdateCreditNote={updateCreditNote} onDeleteCreditNote={deleteCreditNote} onSaveAtlas={() => persistAtlasSnapshot()} />}
         </div>
       </aside>
     </main>
@@ -1375,7 +1389,7 @@ function MobileAccordionGroup({ sections = [], intro = '', storageKey = '', init
   </div>;
 }
 
-function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading, irError, dropReport, dropLoading, onInvestigate, onReloadIr, companyNote, onUpdateCompanyNote, onDeleteCompanyNote, creditNote, onUpdateCreditNote, onDeleteCreditNote, mobile = false }) {
+function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading, irError, dropReport, dropLoading, onInvestigate, onReloadIr, companyNote, onUpdateCompanyNote, onDeleteCompanyNote, creditNote, onUpdateCreditNote, onDeleteCreditNote, onSaveAtlas, mobile = false }) {
   const tab = activeTab || 'summary';
   const setTab = setActiveTab;
   useEffect(() => { const h = () => setActiveTab('note'); window.addEventListener('openCompanyNoteTab', h); return () => window.removeEventListener('openCompanyNoteTab', h); }, [setActiveTab]);
@@ -1437,15 +1451,15 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
       { id: 'trend', title: '順張り', hint: '上昇継続・安全度・撤退', content: () => <TrendPanel q={q} /> },
     ]} />}
     {normalizedTab === 'confirm' && <MobileAccordionGroup storageKey={`confirm-${q.code}-${confirmInitialOpen}`} initialOpenId={confirmInitialOpen} intro="図鑑への書き込み・信用需給記録はここです。AIは下書き係、自分で確認して保存します。" sections={[
-      { id: 'note', title: '図鑑に書き込む', hint: 'ChatGPT回答・AI下書きを確認して図鑑メモとして保存', content: () => <CompanyNotePanel q={q} note={companyNote} onSave={(patch) => onUpdateCompanyNote?.(q.code, patch)} onDelete={() => onDeleteCompanyNote?.(q.code)} /> },
-      { id: 'credit', title: '信用需給を記録する', hint: '信用データ貼り付け・抽出・保存', content: () => <CreditBalancePanel q={q} note={creditNote} onSave={(patch) => onUpdateCreditNote?.(q.code, patch)} onDelete={() => onDeleteCreditNote?.(q.code)} /> },
+      { id: 'note', title: '図鑑に書き込む', hint: 'ChatGPT回答・AI下書きを確認して図鑑メモとして保存', content: () => <CompanyNotePanel q={q} note={companyNote} onSave={(patch) => onUpdateCompanyNote?.(q.code, patch)} onDelete={() => onDeleteCompanyNote?.(q.code)} onSaveAtlas={onSaveAtlas} /> },
+      { id: 'credit', title: '信用需給を記録する', hint: '信用データ貼り付け・抽出・保存', content: () => <CreditBalancePanel q={q} note={creditNote} onSave={(patch) => onUpdateCreditNote?.(q.code, patch)} onDelete={() => onDeleteCreditNote?.(q.code)} onSaveAtlas={onSaveAtlas} /> },
       { id: 'tech', title: '価格/指標', hint: '価格帯・出来高・指標確認', content: () => <TechnicalPanel q={q} /> },
       { id: 'ir', title: 'IR/ニュース', hint: '直近材料と更新', content: () => <IrPanel ir={ir} loading={irLoading} error={irError} onReload={onReloadIr} q={q} /> },
       { id: 'drop', title: '急落理由', hint: '急落調査・悪材料確認', content: () => <DropReasonPanel report={dropReport} loading={dropLoading} onInvestigate={onInvestigate} q={q} /> },
     ]} />}
     {normalizedTab === 'company' && <CompanyPanel q={q} ir={ir} dropReport={dropReport} research={research} companyNote={companyNote} />}
-    {normalizedTab === 'note' && <CompanyNotePanel q={q} note={companyNote} onSave={(patch) => onUpdateCompanyNote?.(q.code, patch)} onDelete={() => onDeleteCompanyNote?.(q.code)} />}
-    {normalizedTab === 'credit' && <CreditBalancePanel q={q} note={creditNote} onSave={(patch) => onUpdateCreditNote?.(q.code, patch)} onDelete={() => onDeleteCreditNote?.(q.code)} />}
+    {normalizedTab === 'note' && <CompanyNotePanel q={q} note={companyNote} onSave={(patch) => onUpdateCompanyNote?.(q.code, patch)} onDelete={() => onDeleteCompanyNote?.(q.code)} onSaveAtlas={onSaveAtlas} />}
+    {normalizedTab === 'credit' && <CreditBalancePanel q={q} note={creditNote} onSave={(patch) => onUpdateCreditNote?.(q.code, patch)} onDelete={() => onDeleteCreditNote?.(q.code)} onSaveAtlas={onSaveAtlas} />}
     {normalizedTab === 'tech' && <TechnicalPanel q={q} />}
     {normalizedTab === 'state' && <StatePanel q={q} />}
     {normalizedTab === 'bottom' && <BottomPanel q={q} />}
@@ -1927,7 +1941,7 @@ function SavedNoteSummary({ note, onOpen }) {
   </div>;
 }
 
-function CompanyNotePanel({ q, note, onSave, onDelete }) {
+function CompanyNotePanel({ q, note, onSave, onDelete, onSaveAtlas }) {
   const [raw, setRaw] = useState(() => normalizeResearchNote(note).raw || '');
   const [saved, setSaved] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
@@ -1976,15 +1990,16 @@ function CompanyNotePanel({ q, note, onSave, onDelete }) {
   return <div className="companyNotePanel simpleNotePanel">
     <div className="companyHeader noteHeader">
       <div><div className="smallTitle">図鑑書き込み</div><h3>{q.code} {q.name}</h3></div>
-      <div className="companyActions">
-        <button onClick={pasteRaw}>回答を貼付</button>
-        <button onClick={autoResearchAI} disabled={aiLoading}>{aiLoading ? 'AI調査中' : 'AI自動調査β'}</button>
-        <button className="aiResearchBtn" onClick={saveNow}>{saved ? '保存済み' : '図鑑に保存'}</button>
-        {note && <button className="sub" onClick={() => { if (window.confirm('この銘柄の保存済み調査メモを削除しますか？')) onDelete?.(); }}>削除</button>}
+      <div className="companyActions compactActions">
+        <button title="クリップボードから回答を貼り付け" onClick={pasteRaw}>貼付</button>
+        <button title="AI下書きを作成" onClick={autoResearchAI} disabled={aiLoading}>{aiLoading ? 'AI中' : 'AI案'}</button>
+        <button className="aiResearchBtn" title="この銘柄の図鑑メモを保存" onClick={saveNow}>{saved ? '済' : '保存'}</button>
+        <button className="sub atlasSaveBtn" title="図鑑全体を端末に丸ごと保存" onClick={() => onSaveAtlas?.()}>💾全</button>
+        {note && <button className="sub dangerMini" title="この銘柄の保存済み調査メモを削除" onClick={() => { if (window.confirm('この銘柄の保存済み調査メモを削除しますか？')) onDelete?.(); }}>削除</button>}
       </div>
     </div>
     {aiState && <p className="mobileHint">{aiState}</p>}
-    {aiDraft && <div className="aiDraftReview"><h4>AI下書き（採用前確認）</h4><textarea value={aiDraft} readOnly rows={10} /><div><button onClick={() => { setRaw(aiDraft); setAiDraft(''); setAiState('AI下書きを貼り付け欄に採用しました。内容確認後に保存してください。'); }}>採用して上書き</button><button onClick={() => { setRaw(`${raw}${raw.trim() ? '\n\n--- AI下書き ---\n' : ''}${aiDraft}`); setAiDraft(''); setAiState('AI下書きを現在メモに追記しました。'); }}>追記</button><button className="sub" onClick={() => { setAiDraft(''); setAiState('AI下書きを破棄しました。'); }}>破棄</button></div></div>}
+    {aiDraft && <div className="aiDraftReview"><h4>AI下書き（採用前確認）</h4><textarea value={aiDraft} readOnly rows={10} /><div><button title="AI下書きで現在の貼付欄を置き換え" onClick={() => { setRaw(aiDraft); setAiDraft(''); setAiState('AI下書きを貼り付け欄に採用しました。内容確認後に保存してください。'); }}>採用</button><button title="AI下書きを現在メモの末尾に追加" onClick={() => { setRaw(`${raw}${raw.trim() ? '\n\n--- AI下書き ---\n' : ''}${aiDraft}`); setAiDraft(''); setAiState('AI下書きを現在メモに追記しました。'); }}>追記</button><button className="sub" title="AI下書きを破棄" onClick={() => { setAiDraft(''); setAiState('AI下書きを破棄しました。'); }}>破棄</button></div></div>}
     <label className="noteField raw onlyRaw"><span>ChatGPT回答全文・調査ログ</span><textarea rows={18} value={raw} placeholder="ここにChatGPT回答・AI下書き・自分の会社メモを貼り付け。保存すると図鑑カードに反映されます。" onChange={(e) => setRaw(e.target.value)} /></label>
     <div className="noteSimpleFooter">
       <span>{hasRaw ? `${raw.length.toLocaleString('ja-JP')}文字` : '未入力'}</span>
@@ -2290,7 +2305,7 @@ function diagnoseCredit(note, q) {
   score = Math.max(0, Math.min(100, Math.round(score)));
   return { label, score, reasons, notes, buyDays, todayBuyDays, sellDays, buyValue, sellValue, ratio, buyMcapPct };
 }
-function CreditBalancePanel({ q, note, onSave, onDelete }) {
+function CreditBalancePanel({ q, note, onSave, onDelete, onSaveAtlas }) {
   const [form, setForm] = useState(() => ({ buyBalance:'', sellBalance:'', buyChange:'', sellChange:'', ratio:'', loanStock:'', loanStockChange:'', marginLoan:'', marginLoanChange:'', diff:'', reverseFee:'', memo:'', raw:'', sourceDate:'', extractionPreview:'', ...(note || {}) }));
   const [saved, setSaved] = useState(false);
   const [copyState, setCopyState] = useState('');
@@ -2430,11 +2445,12 @@ function CreditBalancePanel({ q, note, onSave, onDelete }) {
   return <div className="creditPanel compactCredit">
     <div className="companyHeader noteHeader">
       <div><div className="smallTitle">信用需給</div><h3>{q.code} {q.name}</h3></div>
-      <div className="companyActions">
-        <button className="sub" onClick={copyCreditPrompt}>信用需給調査プロンプトをコピー</button>
-        <button className="sub" onClick={fetchJpxAuto} disabled={jpxLoading}>{jpxLoading ? 'JPX取得中…' : 'JPX自動取得β'}</button>
-        <button onClick={saveNow}>{saved ? '保存済み' : '保存/更新'}</button>
-        {note && <button className="sub" onClick={() => { if (window.confirm('この銘柄の信用需給メモを削除しますか？')) onDelete?.(); }}>削除</button>}
+      <div className="companyActions compactActions">
+        <button className="sub" title="信用需給調査プロンプトをコピー" onClick={copyCreditPrompt}>需給P</button>
+        <button className="sub" title="JPXから信用データを自動取得" onClick={fetchJpxAuto} disabled={jpxLoading}>{jpxLoading ? 'JPX中' : 'JPXβ'}</button>
+        <button title="この銘柄の信用需給を保存" onClick={saveNow}>{saved ? '済' : '保存'}</button>
+        <button className="sub atlasSaveBtn" title="図鑑全体を端末に丸ごと保存" onClick={() => onSaveAtlas?.()}>💾全</button>
+        {note && <button className="sub dangerMini" title="この銘柄の信用需給メモを削除" onClick={() => { if (window.confirm('この銘柄の信用需給メモを削除しますか？')) onDelete?.(); }}>削除</button>}
       </div>
     </div>
     {(copyState || parseState) && <div className="notice good">{copyState || parseState}</div>}
@@ -2704,8 +2720,8 @@ ${recentItems.length ? recentItems.map(fmtLine).join('\n') : '取得なし'}
       <div className="companyActions">
         {loading && <span className="loadingPill">調査中…</span>}
         <button onClick={() => loadResearch(true)} disabled={loading}>{loading ? '調査中' : '再調査'}</button>
-        <button className="aiResearchBtn" onClick={copyCompanyResearchPrompt}>{copyState === 'copied' ? 'プロンプトコピー済み' : '会社調査プロンプトをコピー'}</button>
-        <button className="sub" onClick={openChatGPT}>ChatGPTを開く</button>
+        <button className="aiResearchBtn promptMini" title="会社調査プロンプトをコピー" onClick={copyCompanyResearchPrompt}>{copyState === 'copied' ? 'P済' : '会社P'}</button>
+        <button className="sub promptMini" title="ChatGPTを開く" onClick={openChatGPT}>GPT</button>
       </div>
     </div>
     {err && <div className="miniError">{err}</div>}
