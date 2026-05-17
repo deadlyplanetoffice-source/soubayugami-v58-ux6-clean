@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = '相場歪観測機 v58 UX7';
+const APP_VERSION = '相場歪観測機 v58 UX8';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -307,7 +307,9 @@ function App() {
   const [dataTransferMsg, setDataTransferMsg] = useState('');
   const [controlDrawerOpen, setControlDrawerOpen] = useState(false);
   const [mobileView, setMobileView] = useState('home');
+  const [mobileBackView, setMobileBackView] = useState('home');
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.matchMedia('(max-width: 780px)').matches : false);
 
   useEffect(() => save('watchlist', watch), [watch]);
   useEffect(() => save('manualRows', manual), [manual]);
@@ -324,6 +326,15 @@ function App() {
 
   useEffect(() => { selectedRef.current = selected; }, [selected]);
   useEffect(() => { const t = setInterval(() => setClockTick(Date.now()), 1000); return () => clearInterval(t); }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(max-width: 780px)');
+    const onChange = (e) => setIsMobile(e.matches);
+    setIsMobile(mq.matches);
+    mq.addEventListener?.('change', onChange);
+    return () => mq.removeEventListener?.('change', onChange);
+  }, []);
 
   useEffect(() => {
     if (scannerSource === 'watch') { setScanPreview(null); return; }
@@ -352,13 +363,14 @@ function App() {
   }, [scannerSource, scannerSector, scannerMinVolume, nikkeiMaxPrice]);
 
   const selectedQuote = selected ? (quotes.find((q) => String(q.code) === String(selected.code)) || quoteCache[String(selected.code)] || null) : null;
-  const research = buildAutoResearch(selectedQuote, selected);
+  const research = useMemo(() => buildAutoResearch(selectedQuote, selected), [selectedQuote, selected?.code]);
 
   function openDetail(q, tab = 'summary') {
     if (!q) return;
     setSelected({ code: q.code, name: q.name, sector: q.sector });
     setDetailTab(tab);
     setDetailOpen(true);
+    setMobileBackView((prev) => mobileView && mobileView !== 'detail' ? mobileView : (prev || 'scanner'));
     setMobileView('detail');
     requestAnimationFrame(() => {
       document.querySelector('.panel.detail')?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
@@ -396,7 +408,9 @@ function App() {
         savedAt: now,
       };
       const history = Array.isArray(current.history) ? current.history.slice(-7) : [];
-      history.push(snapshot);
+      const last = history[history.length - 1];
+      if (last && String(last.sourceDate || '') === String(snapshot.sourceDate || '')) history[history.length - 1] = snapshot;
+      else history.push(snapshot);
       const nextNote = { ...current, ...patch, history, updatedAt: now };
       return { ...prev, [key]: nextNote };
     });
@@ -451,7 +465,19 @@ function App() {
         setError('広域スキャンが0件で返りました。通信または一括取得の欠損の可能性があるため、前回表示を保持しました。もう一度更新してください。');
         return;
       }
-      setQuotes(merged);
+      const singleCodeOverride = source === 'watch' && Array.isArray(codesOverride) && codesOverride.length === 1;
+      if (singleCodeOverride) {
+        setQuotes((prev) => {
+          const code = String(codesOverride[0]);
+          const item = merged.find((x) => String(x.code) === code);
+          if (!item) return prev;
+          return prev.some((q) => String(q.code) === code)
+            ? prev.map((q) => String(q.code) === code ? { ...q, ...item } : q)
+            : prev;
+        });
+      } else {
+        setQuotes(merged);
+      }
       setQuoteCache((prev) => {
         const next = { ...prev };
         for (const item of merged) next[String(item.code)] = item;
@@ -492,15 +518,22 @@ function App() {
     if (selected?.code) fetchIr(selected.code);
   }, [selected?.code]);
 
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => { refresh('watch'); }, []);
 
   useEffect(() => {
     if (!refreshInterval) return;
+    if (isMobile && !['scanner', 'watch', 'detail'].includes(mobileView)) return;
     const timer = setInterval(() => {
-      refresh();
+      if (isMobile) {
+        if (mobileView === 'watch') refresh('watch');
+        else if (mobileView === 'detail' && selected?.code) refresh('watch', [selected.code]);
+        else refresh(scannerSource);
+      } else {
+        refresh();
+      }
     }, refreshInterval);
     return () => clearInterval(timer);
-  }, [refreshInterval, watch, scannerSource, nikkeiMaxPrice, scannerMinPrice, scannerMinVolume, scannerSector]);
+  }, [refreshInterval, isMobile, mobileView, selected?.code, watch, scannerSource, nikkeiMaxPrice, scannerMinPrice, scannerMinVolume, scannerSector]);
 
   const refreshOption = REFRESH_OPTIONS.find((o) => o.value === refreshInterval) || REFRESH_OPTIONS[1];
   const scanSize = scannerSource !== 'watch' ? (marketMeta?.underCount || 80) : watch.length;
@@ -525,6 +558,8 @@ function App() {
       const newCodes = exists ? watch.map((w) => w.code) : [row.code, ...watch.map((w) => w.code)];
       setWatch((prev) => prev.some((w) => String(w.code).toUpperCase() === String(row.code).toUpperCase()) ? prev : [row, ...prev]);
       setSelected(row);
+      setMobileBackView('search');
+      setMobileView('detail');
       setNewInput('');
       setTimeout(() => refresh('watch', newCodes), 0);
     } catch (e) {
@@ -744,7 +779,8 @@ function App() {
     ? `監視リスト / ${watch.length}件`
     : `${sourceLabel(scannerSource)} / ${fmt(scannerMinPrice)}〜${fmt(nikkeiMaxPrice)}円 / 出来高${fmt(scannerMinVolume)}以上`;
   const activeMobileQuote = selectedQuote || (selected ? quoteCache[String(selected.code)] : null);
-  const openMobileScanner = (source = scannerSource) => { setMobileView('scanner'); setScannerSource(source); refresh(source); };
+  const watchQuotes = watch.map((w) => quotes.find((q) => String(q.code) === String(w.code)) || quoteCache[String(w.code)] || w);
+  const openMobileScanner = (source = 'all') => { setMobileView('scanner'); setScannerSource(source); refresh(source); };
   const mobileSourceButtons = [['watch','監視'],['all','全候補'],['growth','グロース'],['prime','プライム'],['nikkei225','日経225'],['standard','スタンダード'],['topix','TOPIX近似']];
   const mobileModeButtons = [['state','状態'],['oshime','押し目'],['bottom','試し玉'],['trend','順張り']];
   const mobileFilterButtons = scannerMode === 'state'
@@ -756,7 +792,7 @@ function App() {
         : [['all','全部'],['oshime','押し目'],['down','下落'],['rr','RR']];
 
   return <>
-    <div className="mobileApp">
+    {isMobile && <div className="mobileApp">
       <div className="mobileShell">
         {mobileView === 'home' && <section className="mobileHome">
           <div className="mobileBrand"><span>{APP_VERSION}</span><em>{lastUpdated ? `最終更新 ${lastUpdated.toLocaleTimeString('ja-JP')}` : '未更新'}</em></div>
@@ -765,7 +801,7 @@ function App() {
             <p>iPhone版はスキャナーと銘柄詳細を分けて、必要な画面だけ開きます。</p>
           </div>
           <div className="mobileMenu">
-            <button className="primary" onClick={() => openMobileScanner(scannerSource)}><b>スキャナーで歪みを探す</b><span>候補をカードで縦に見る</span></button>
+            <button className="primary" onClick={() => openMobileScanner('all')}><b>スキャナーで歪みを探す</b><span>候補をカードで縦に見る</span></button>
             <button onClick={() => { setMobileView('watch'); refresh('watch'); }}><b>監視銘柄を見る</b><span>保有・注視銘柄を更新</span></button>
             <button onClick={() => setMobileView('search')}><b>銘柄コードで調べる</b><span>1銘柄を追加して詳細へ</span></button>
             <button onClick={() => setMobileView('settings')}><b>保存データ / 設定</b><span>保存書出・読込、自動更新</span></button>
@@ -790,41 +826,43 @@ function App() {
           </div>
           {mobileFiltersOpen && <div className="mobileFilters">
             <label>セクター<select value={scannerSector} onChange={(e) => setScannerSector(e.target.value)} disabled={scannerSource === 'watch'}>{SECTOR_OPTIONS.map(([k,label]) => <option key={k} value={k}>{label}</option>)}</select></label>
-            <label>下限<input type="number" value={scannerMinPrice} onChange={(e) => setScannerMinPrice(Number(e.target.value) || 0)} /></label>
-            <label>上限<input type="number" value={nikkeiMaxPrice} onChange={(e) => setNikkeiMaxPrice(Number(e.target.value) || 3000)} /></label>
-            <label>出来高<input type="number" value={scannerMinVolume} onChange={(e) => setScannerMinVolume(Number(e.target.value) || 0)} /></label>
-            <button className="fullAction" onClick={() => refresh(scannerSource)}>この条件で再スキャン</button>
+            <label>下限<input type="number" inputMode="numeric" pattern="[0-9]*" value={scannerMinPrice} onChange={(e) => setScannerMinPrice(Number(e.target.value) || 0)} /></label>
+            <label>上限<input type="number" inputMode="numeric" pattern="[0-9]*" value={nikkeiMaxPrice} onChange={(e) => setNikkeiMaxPrice(Number(e.target.value) || 3000)} /></label>
+            <label>出来高<input type="number" inputMode="numeric" pattern="[0-9]*" value={scannerMinVolume} onChange={(e) => setScannerMinVolume(Number(e.target.value) || 0)} /></label>
+            <button className="fullAction" onClick={() => { refresh(scannerSource); setMobileFiltersOpen(false); }}>この条件で再スキャン</button>
           </div>}
           <div className="mobileFilterChips">{mobileFilterButtons.map(([k,label]) => <button key={k} className={filter===k?'active':''} onClick={() => setFilter(k)}>{label}</button>)}</div>
           {error && <div className="mobileError">{error}</div>}
-          <div className="mobileCards">{rows.map((q) => <MobileQuoteCard key={q.code} q={q} mode={scannerMode} selected={selected} companyNote={companyNotes[String(q.code)]} onOpen={(tab='summary') => openDetail(q, tab)} onWatch={() => { if (!watch.some(w => String(w.code) === String(q.code))) setWatch([...watch, { code:q.code, name:q.name, sector:q.sector || '' }]); }} />)}</div>
+          {dataTransferMsg && <div className="mobileToast">{dataTransferMsg}</div>}
+          <div className="mobileCards">{rows.map((q) => <MobileQuoteCard key={q.code} q={q} mode={scannerMode} selected={selected} watched={watch.some(w => String(w.code) === String(q.code))} companyNote={companyNotes[String(q.code)]} onOpen={(tab='summary') => openDetail(q, tab)} onWatch={() => { if (!watch.some(w => String(w.code) === String(q.code))) { setWatch([...watch, { code:q.code, name:q.name, sector:q.sector || '' }]); setDataTransferMsg(`${q.code} を監視に追加しました`); setTimeout(() => setDataTransferMsg(''), 2500); } else { setDataTransferMsg(`${q.code} は監視中です`); setTimeout(() => setDataTransferMsg(''), 2500); } }} />)}</div>
           {!loading && rows.length === 0 && <div className="mobileEmpty">表示できる候補がありません。条件を変えるか更新してください。</div>}
         </section>}
 
         {mobileView === 'watch' && <section className="mobilePage">
           <div className="mobilePageHead"><button className="backBtn" onClick={() => setMobileView('home')}>←</button><div><h1>監視銘柄</h1><p>{watch.length}件 / 固定リスト</p></div><button className="smallAction" onClick={() => refresh('watch')} disabled={loading}>{loading ? '取得中' : '更新'}</button></div>
-          <div className="mobileCards">{(quotes.length ? quotes : watch).map((q) => <MobileQuoteCard key={q.code} q={q} mode="watch" selected={selected} companyNote={companyNotes[String(q.code)]} onOpen={(tab='summary') => openDetail(q, tab)} onWatch={() => {}} />)}</div>
+          <div className="mobileCards">{watchQuotes.map((q) => <MobileQuoteCard key={q.code} q={q} mode="watch" selected={selected} watched={true} companyNote={companyNotes[String(q.code)]} onOpen={(tab='summary') => openDetail(q, tab)} onWatch={() => {}} />)}</div>
+          {!loading && watchQuotes.length === 0 && <div className="mobileEmpty">監視銘柄がありません。銘柄検索から追加してください。</div>}
         </section>}
 
         {mobileView === 'search' && <section className="mobilePage">
           <div className="mobilePageHead"><button className="backBtn" onClick={() => setMobileView('home')}>←</button><div><h1>銘柄検索</h1><p>コードまたは銘柄名を追加</p></div></div>
           <div className="mobileSearchBox"><input placeholder="例: 3687 / フィックスターズ" value={newInput} onChange={(e) => setNewInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addCode()} /><button onClick={addCode} disabled={loading}>{loading ? '検索中' : '追加'}</button></div>
-          <p className="mobileHint">追加後は監視銘柄に入ります。監視画面で更新して詳細を開けます。</p>
+          <p className="mobileHint">追加後は監視銘柄に入り、そのまま詳細画面を開きます。</p>
         </section>}
 
         {mobileView === 'detail' && <section className="mobilePage">
-          <div className="mobilePageHead"><button className="backBtn" onClick={() => setMobileView('scanner')}>←</button><div><h1>{selected?.code || '銘柄'} {selected?.name || ''}</h1><p>{activeMobileQuote ? `${yen(activeMobileQuote.price)} / ${pct(activeMobileQuote.changePct)}` : '詳細'}</p></div><button className="smallAction" onClick={() => selected && refresh('watch', [selected.code])}>更新</button></div>
+          <div className="mobilePageHead"><button className="backBtn" onClick={() => setMobileView(mobileBackView || 'home')}>←</button><div><h1>{selected?.code || '銘柄'} {selected?.name || ''}</h1><p>{activeMobileQuote ? `${yen(activeMobileQuote.price)} / ${pct(activeMobileQuote.changePct)}` : '詳細'}</p></div><button className="smallAction" onClick={() => selected && refresh('watch', [selected.code])}>更新</button></div>
           {selected ? <div className="mobileDetailCard"><Detail q={activeMobileQuote} selected={selected} activeTab={detailTab} setActiveTab={setDetailTab} research={research} ir={irCache[selected.code]} irLoading={irLoading} irError={irError} dropReport={dropReport?.code === selected.code ? dropReport : null} dropLoading={dropLoading} onInvestigate={() => investigateDrop(selected.code)} onReloadIr={() => { setIrCache((prev) => { const next = { ...prev }; delete next[selected.code]; return next; }); fetchIr(selected.code); }} companyNote={companyNotes[String(selected.code)]} onUpdateCompanyNote={updateCompanyNote} onDeleteCompanyNote={deleteCompanyNote} creditNote={creditNotes[String(selected.code)]} onUpdateCreditNote={updateCreditNote} onDeleteCreditNote={deleteCreditNote} /></div> : <div className="mobileEmpty">銘柄が選択されていません。</div>}
         </section>}
 
         {mobileView === 'settings' && <section className="mobilePage">
           <div className="mobilePageHead"><button className="backBtn" onClick={() => setMobileView('home')}>←</button><div><h1>保存データ / 設定</h1><p>補助機能はここに格納</p></div></div>
-          <div className="mobileSettings"><button onClick={exportLocalData}>保存書出</button><button onClick={() => importFileRef.current?.click()}>保存読込</button><input ref={importFileRef} className="hiddenFileInput" type="file" accept="application/json,.json" onChange={(e) => importLocalDataFile(e.target.files?.[0])} />{dataTransferMsg && <p>{dataTransferMsg}</p>}<h2>自動更新</h2><div className="mobileFilterChips">{REFRESH_OPTIONS.map((opt) => <button key={opt.value} className={refreshInterval === opt.value ? 'active' : ''} onClick={() => setRefreshInterval(opt.value)}>{opt.label}</button>)}</div></div>
+          <div className="mobileSettings"><button onClick={exportLocalData}>保存書出</button><button onClick={() => importFileRef.current?.click()}>保存読込</button><input ref={importFileRef} className="hiddenFileInput" type="file" accept="application/json,.json" onChange={(e) => importLocalDataFile(e.target.files?.[0])} />{dataTransferMsg && <p>{dataTransferMsg}</p>}<h2>自動更新</h2><div className="mobileFilterChips">{REFRESH_OPTIONS.map((opt) => <button key={opt.value} className={refreshInterval === opt.value ? 'active' : ''} onClick={() => setRefreshInterval(opt.value)}>{opt.label}</button>)}</div>{intervalWarning && <p className="mobileHint">{intervalWarning}</p>}</div>
         </section>}
       </div>
-    </div>
+    </div>}
 
-    <div className="legacyApp"><div className="app">
+    {!isMobile && <div className="legacyApp"><div className="app">
     <header className="topbar compactTopbar">
       <div className="appVersion" title="現在のアプリ版">{APP_VERSION}</div>
       <div className="actions">
@@ -850,9 +888,9 @@ function App() {
             <button className={scannerSource === 'topix' ? 'active' : ''} onClick={() => { setScannerSource('topix'); refresh('topix'); }}>TOPIX近似</button>
           </div>
           <label>セクター<select value={scannerSector} onChange={(e) => { setScannerSector(e.target.value); setTimeout(() => refresh(scannerSource), 0); }} disabled={scannerSource === 'watch'}>{SECTOR_OPTIONS.map(([k,label]) => <option key={k} value={k}>{label}</option>)}</select></label>
-          <label>下限<input type="number" value={scannerMinPrice} onChange={(e) => setScannerMinPrice(Number(e.target.value) || 0)} onKeyDown={(e) => e.key === 'Enter' && refresh(scannerSource)} /></label>
-          <label>上限<input type="number" value={nikkeiMaxPrice} onChange={(e) => setNikkeiMaxPrice(Number(e.target.value) || 3000)} onKeyDown={(e) => e.key === 'Enter' && refresh(scannerSource)} /></label>
-          <label>出来高<input type="number" value={scannerMinVolume} onChange={(e) => setScannerMinVolume(Number(e.target.value) || 0)} onKeyDown={(e) => e.key === 'Enter' && refresh(scannerSource)} /></label>
+          <label>下限<input type="number" inputMode="numeric" pattern="[0-9]*" value={scannerMinPrice} onChange={(e) => setScannerMinPrice(Number(e.target.value) || 0)} onKeyDown={(e) => e.key === 'Enter' && refresh(scannerSource)} /></label>
+          <label>上限<input type="number" inputMode="numeric" pattern="[0-9]*" value={nikkeiMaxPrice} onChange={(e) => setNikkeiMaxPrice(Number(e.target.value) || 3000)} onKeyDown={(e) => e.key === 'Enter' && refresh(scannerSource)} /></label>
+          <label>出来高<input type="number" inputMode="numeric" pattern="[0-9]*" value={scannerMinVolume} onChange={(e) => setScannerMinVolume(Number(e.target.value) || 0)} onKeyDown={(e) => e.key === 'Enter' && refresh(scannerSource)} /></label>
           {scannerSource !== 'watch' && <div className={`scanPreview ${scanPreview?.guard?.block ? 'block' : 'ok'}`}>
             {scanPreviewLoading ? '探索件数確認中…' : scanPreview?.error ? `探索確認失敗: ${scanPreview.error}` : scanPreview ? `候補${fmt(scanPreview.candidateCount)}件 / 推定${fmt(scanPreview.guard?.estimateSeconds)}秒${scanPreview.guard?.block ? ' / 条件を絞ってください' : ''}` : '探索件数 —'}
           </div>}
@@ -960,13 +998,13 @@ function App() {
     </main>
 
     <footer>投資助言ではありません。価格・ファンダは参考値です。</footer>
-    </div></div>
+    </div></div>}
   </>;
 }
 
 
 
-function MobileQuoteCard({ q, mode, selected, companyNote, onOpen, onWatch }) {
+function MobileQuoteCard({ q, mode, selected, watched = false, companyNote, onOpen, onWatch }) {
   const quality = buildQuality(q);
   const score = mode === 'state' ? q.stateScore : mode === 'trend' ? q.trendScore : mode === 'bottom' ? q.bottomScore : q.score;
   const judge = mode === 'state'
@@ -992,12 +1030,15 @@ function MobileQuoteCard({ q, mode, selected, companyNote, onOpen, onWatch }) {
       <div><label>危険</label><b>{danger ?? '—'}</b></div>
     </div>
     <div className="mqSub">{entry ? `目安 ${yen(entry)}` : (q.stateReason || q.oshimeLabel || q.trendEntryLabel || '詳細で確認')}</div>
+    <div className="mqSubMetrics">
+      <span>押し目 {yen(q.oshimePrice || q.bottomEntryPrice || q.trendEntryPrice || q.price)}</span>
+      <span>撤退 {yen(q.rrStop || q.bottomStop)}</span>
+      <span>出来高 {fmt(q.volume)} / {fmt(q.volumeRatio, '倍')}</span>
+    </div>
     <div className="mqActions" onClick={(e) => e.stopPropagation()}>
       <button onClick={() => onOpen('summary')}>詳細</button>
       <button onClick={() => onOpen('chart')}>チャート</button>
-      <button onClick={() => onOpen('company')}>会社</button>
-      <button onClick={() => onOpen('credit')}>信用</button>
-      <button onClick={onWatch}>監視追加</button>
+      <button onClick={onWatch}>{watched ? '監視中' : '監視追加'}</button>
     </div>
   </article>;
 }

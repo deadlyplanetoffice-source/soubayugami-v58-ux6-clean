@@ -1897,7 +1897,7 @@ button {
   .controlDrawer { display: contents; }
 }
 
-/* UX7: iPhone専用の画面切替UI。PC版は従来UIを維持。 */
+/* UX8: iPhone専用ナビの安定化。PC版は従来UIを維持。 */
 .mobileApp { display: none; }
 
 @media (max-width: 780px) {
@@ -1926,7 +1926,8 @@ button {
   .mobileMenu button b { display: block; font-size: 18px; margin-bottom: 6px; }
   .mobileMenu button span { display: block; color: #9eb1c6; font-size: 13px; }
   .mobilePageHead { position: sticky; top: 0; z-index: 10; display: grid; grid-template-columns: 42px 1fr auto; gap: 10px; align-items: center; background: rgba(7,13,20,.94); backdrop-filter: blur(10px); padding: 8px 0 12px; border-bottom: 1px solid #1d2a3a; }
-  .mobilePageHead h1 { margin: 0; font-size: 20px; }
+  .mobilePageHead > div { min-width: 0; }
+  .mobilePageHead h1 { margin: 0; font-size: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mobilePageHead p { margin: 3px 0 0; color: #9eb1c6; font-size: 12px; line-height: 1.35; }
   .backBtn, .smallAction, .fullAction, .mobileControlStrip button, .mobileModeStrip button, .mobileFilterChips button, .mobileFilterSummary button, .mobileSettings button, .mqActions button, .mobileSearchBox button {
     appearance: none; border: 1px solid #2a3b52; background: #132033; color: #e7edf7; border-radius: 14px; min-height: 40px; padding: 9px 12px; font-size: 14px;
@@ -1957,16 +1958,20 @@ button {
   .mqMetrics label { display: block; color: #8ea3bc; font-size: 11px; margin-bottom: 3px; }
   .mqMetrics b { display: block; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mqSub { color: #ffd36b; margin: 10px 0 0; font-size: 13px; }
-  .mqActions { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; margin-top: 12px; }
-  .mqActions button { min-height: 36px; padding: 7px 4px; font-size: 12px; }
+  .mqSubMetrics { display: grid; gap: 5px; margin-top: 8px; color: #9eb1c6; font-size: 12px; }
+  .mqSubMetrics span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mqActions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+  .mqActions button { min-height: 42px; padding: 8px 6px; font-size: 13px; }
   .mobileError, .mobileEmpty { margin: 14px 0; padding: 13px; border-radius: 16px; background: #2a1520; border: 1px solid #71394d; color: #ffd9e2; }
+  .mobileToast { margin: 12px 0 0; padding: 10px 12px; border-radius: 14px; background: rgba(49,168,82,.16); border: 1px solid rgba(49,168,82,.45); color: #bff2ce; }
   .mobileSearchBox { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 18px; }
   .mobileHint { color: #9eb1c6; line-height: 1.6; }
   .mobileDetailCard { margin-top: 14px; }
   .mobileDetailCard .detailHeader, .mobileDetailCard .tabs { position: static !important; }
   .mobileDetailCard .tabBody, .mobileDetailCard .detailInner { max-height: none !important; overflow: visible !important; }
   .mobileDetailCard .chartPanel { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .mobileDetailCard .precisionChart { min-width: 680px; }
+  .mobileDetailCard .precisionChart { min-width: 0; width: 100%; max-width: 100%; }
+  .mobileDetailCard svg.precisionChart { height: auto; }
   .mobileSettings { display: grid; gap: 12px; margin-top: 16px; }
   .mobileSettings h2 { font-size: 16px; margin: 8px 0 0; }
   .hiddenFileInput { display: none !important; }
