@@ -1,0 +1,24 @@
+{
+  "name": "soubayugami-kansokuki-v58",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm:server\" \"npm:client\"",
+    "server": "node server.js",
+    "client": "vite --host 127.0.0.1",
+    "start": "node server.js",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "vite": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "express": "latest",
+    "concurrently": "latest",
+    "dotenv": "latest",
+    "xlsx": "latest",
+    "pdf-parse": "1.1.1"
+  },
+  "devDependencies": {}
+}
