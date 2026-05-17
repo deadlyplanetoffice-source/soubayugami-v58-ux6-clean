@@ -4,8 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = '相場歪観測機 v58 UX19';
-const LOCAL_SNAPSHOT_KEY = 'soubayugamiCurrentStateSnapshotV1';
+const APP_VERSION = '相場歪観測機 v58 UX20';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -389,6 +388,7 @@ function App() {
   const refreshInFlightRef = useRef(false);
   const importFileRef = useRef(null);
   const [dataTransferMsg, setDataTransferMsg] = useState('');
+  const [lastExportAt, setLastExportAt] = useState(() => load('lastExportAt', null));
   const [controlDrawerOpen, setControlDrawerOpen] = useState(false);
   const [mobileView, setMobileView] = useState('watch');
   const [mobileBackView, setMobileBackView] = useState('watch');
@@ -875,22 +875,6 @@ function App() {
     };
   }
 
-  function persistAtlasSnapshot(overrides = {}, message = '図鑑を丸ごと端末に保存しました') {
-    try {
-      const payload = buildLocalPayload({ ...overrides, savedAt: new Date().toISOString(), exportedAt: new Date().toISOString() });
-      localStorage.setItem(LOCAL_SNAPSHOT_KEY, JSON.stringify(payload));
-      if (message) {
-        setDataTransferMsg(`${message} / ${new Date(payload.savedAt).toLocaleString('ja-JP')}`);
-        setTimeout(() => setDataTransferMsg(''), 5200);
-      }
-      return true;
-    } catch (e) {
-      setDataTransferMsg(`図鑑保存に失敗: ${e.message}`);
-      setTimeout(() => setDataTransferMsg(''), 6000);
-      return false;
-    }
-  }
-
   function applyLocalData(data, message = '保存データを反映しました') {
     if (!data || typeof data !== 'object') throw new Error('保存データの形式が不正です');
     if (Array.isArray(data.watch)) setWatch(data.watch);
@@ -905,7 +889,6 @@ function App() {
     if (data.sortSpec && typeof data.sortSpec === 'object') setSortSpec(data.sortSpec);
     if (data.companyResearchNotes && typeof data.companyResearchNotes === 'object') setCompanyNotes(data.companyResearchNotes);
     if (data.creditBalanceNotes && typeof data.creditBalanceNotes === 'object') setCreditNotes(data.creditBalanceNotes);
-    try { localStorage.setItem(LOCAL_SNAPSHOT_KEY, JSON.stringify({ ...data, restoredAt: new Date().toISOString() })); } catch {}
     setDataTransferMsg(message);
     setTimeout(() => setDataTransferMsg(''), 6000);
   }
@@ -930,6 +913,9 @@ function App() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+    const now = new Date().toISOString();
+    setLastExportAt(now);
+    save('lastExportAt', now);
     setDataTransferMsg('図鑑JSONを保存しました');
     setTimeout(() => setDataTransferMsg(''), 4000);
   }
@@ -958,6 +944,9 @@ function App() {
   const freshnessSec = lastUpdated ? Math.max(0, Math.floor((clockTick - lastUpdated.getTime()) / 1000)) : null;
   const freshnessText = freshnessSec == null ? '未更新' : freshnessSec < 60 ? `${freshnessSec}秒前` : `${Math.floor(freshnessSec/60)}分前`;
   const freshnessClass = freshnessSec == null ? 'stale' : freshnessSec > 180 ? 'stale' : freshnessSec > 60 ? 'warn' : 'fresh';
+  const jsonSaveDays = lastExportAt ? Math.floor((Date.now() - new Date(lastExportAt).getTime()) / 86400000) : null;
+  const jsonSaveText = jsonSaveDays == null ? 'JSON未保存' : jsonSaveDays === 0 ? 'JSON保存: 今日' : `JSON保存: ${jsonSaveDays}日前`;
+  const jsonSaveClass = jsonSaveDays == null || jsonSaveDays >= 14 ? 'staleHard' : jsonSaveDays >= 7 ? 'staleSoft' : 'fresh';
 
   const scannerTitle = scannerMode === 'state' ? '状態タグ' : scannerMode === 'trend' ? '順張り' : scannerMode === 'bottom' ? '試し玉・戻り' : '押し目・歪み';
   const sourceSummary = scannerSource === 'watch'
@@ -1011,8 +1000,10 @@ function App() {
   const jumpMobileDetail = (q) => q && openDetail(q, detailTab || 'summary');
 
   return <>
+    <input ref={importFileRef} className="hiddenFileInput" type="file" accept="application/json,.json" onChange={(e) => importLocalDataFile(e.target.files?.[0])} />
     {isMobile && <div className="mobileApp">
       <div className="mobileShell">
+        
         <div className="mobileBrand mobileBrandCompact"><span>{APP_VERSION}</span><em>動く銘柄図鑑 / {lastUpdated ? `最終更新 ${lastUpdated.toLocaleTimeString('ja-JP')}` : '未更新'}</em></div>
 
         {mobileView === 'scanner' && <section className="mobilePage">
@@ -1047,10 +1038,10 @@ function App() {
 
         {mobileView === 'watch' && <section className="mobilePage">
           <div className="mobilePageHead noBack watchHead">
-            <div><h1>図鑑</h1><p>{watch.length}件</p></div>
+            <div><h1>図鑑</h1><p>{watch.length}件 <em className={`jsonFreshness ${jsonSaveClass}`}>{jsonSaveText}</em></p></div>
             <div className="mobileHeadActions">
               <button className="smallAction" onClick={() => refresh('watch')} disabled={loading}>{loading ? '取得中' : '更新'}</button>
-              <button className="smallAction saveAction" title="監視銘柄・会社調査・信用需給・条件をJSONファイルに丸ごと保存" onClick={saveCurrentStateLocal}>保存</button>
+              <button className="smallAction saveAction" title="監視銘柄・会社調査・信用需給・条件をJSONファイルに丸ごと保存" onClick={exportLocalData}>保存</button>
               <button className="smallAction loadAction" title="保存した図鑑JSONを読み込み" onClick={restoreCurrentStateLocal}>読込</button>
             </div>
           </div>
@@ -1072,14 +1063,14 @@ function App() {
         </section>}
 
         {mobileView === 'settings' && <section className="mobilePage">
-          <div className="mobilePageHead noBack"><div><h1>保存</h1><p>図鑑データ・設定・バックアップ</p></div></div>
-          <div className="mobileSettings"><h2>図鑑JSON</h2><p className="mobileHint">監視銘柄・会社調査・信用需給・条件を、JSONファイルとして丸ごと保存/読み込みします。Safariのキャッシュを消す前やバージョン更新前は保存してください。</p><button className="primary saveAtlasBig" onClick={saveCurrentStateLocal}>図鑑JSON保存</button><button onClick={restoreCurrentStateLocal}>図鑑JSON読込（上書き）</button><input ref={importFileRef} className="hiddenFileInput" type="file" accept="application/json,.json" onChange={(e) => importLocalDataFile(e.target.files?.[0])} />{dataTransferMsg && <p>{dataTransferMsg}</p>}<h2>自動更新</h2><div className="mobileFilterChips">{REFRESH_OPTIONS.map((opt) => <button key={opt.value} className={refreshInterval === opt.value ? 'active' : ''} onClick={() => setRefreshInterval(opt.value)}>{opt.label}</button>)}</div>{intervalWarning && <p className="mobileHint">{intervalWarning}</p>}</div>
+          <div className="mobilePageHead noBack"><div><h1>設定</h1><p>図鑑データ・JSONバックアップ</p></div></div>
+          <div className="mobileSettings"><h2>図鑑JSON</h2><p className="mobileHint">監視銘柄・会社調査・信用需給・条件を、JSONファイルとして丸ごと保存/読み込みします。Safariのキャッシュを消す前やバージョン更新前は保存してください。</p><button className="primary saveAtlasBig" onClick={saveCurrentStateLocal}>図鑑JSON保存</button><button onClick={restoreCurrentStateLocal}>図鑑JSON読込（上書き）</button>{dataTransferMsg && <p>{dataTransferMsg}</p>}<h2>自動更新</h2><div className="mobileFilterChips">{REFRESH_OPTIONS.map((opt) => <button key={opt.value} className={refreshInterval === opt.value ? 'active' : ''} onClick={() => setRefreshInterval(opt.value)}>{opt.label}</button>)}</div>{intervalWarning && <p className="mobileHint">{intervalWarning}</p>}</div>
         </section>}
         <nav className="mobileTabBar" aria-label="主要画面">
           <button className={mobileView === 'watch' ? 'active' : ''} onClick={() => { setMobileView('watch'); refresh('watch'); }}>図鑑</button>
           <button className={mobileView === 'scanner' ? 'active' : ''} onClick={() => { setMobileView('scanner'); openMobileScanner(scannerSource === 'watch' ? 'all' : scannerSource); }}>探索</button>
           <button className={mobileView === 'search' ? 'active' : ''} onClick={() => setMobileView('search')}>調べる</button>
-          <button className={mobileView === 'settings' ? 'active' : ''} onClick={() => setMobileView('settings')}>保存</button>
+          <button className={mobileView === 'settings' ? 'active' : ''} onClick={() => setMobileView('settings')}>設定</button>
         </nav>
       </div>
     </div>}
@@ -1135,11 +1126,9 @@ function App() {
         </div>
         <button className="refreshMainBtn" onClick={refresh} disabled={loading}>{loading ? '取得中…' : '価格更新'}</button>
         <div className="dataTools">
-          <button className="sub" onClick={saveCurrentStateLocal}>図鑑JSON保存</button>
-          <button className="sub" onClick={restoreCurrentStateLocal}>JSON読込</button>
           <button className="sub" onClick={exportLocalData}>JSON保存</button>
-          <button className="sub" onClick={() => importFileRef.current?.click()}>JSON読込</button>
-          <input ref={importFileRef} className="hiddenFileInput" type="file" accept="application/json,.json" onChange={(e) => importLocalDataFile(e.target.files?.[0])} />
+          <button className="sub" onClick={restoreCurrentStateLocal}>JSON読込</button>
+          {lastExportAt && <span className={`jsonFreshness ${jsonSaveClass}`}>{jsonSaveText}</span>}
           {dataTransferMsg && <span>{dataTransferMsg}</span>}
         </div>
         {intervalWarning && <div className="intervalWarning">{intervalWarning}</div>}
@@ -1232,13 +1221,17 @@ function MobileQuoteCard({ q, mode, selected, watched = false, companyNote, cred
   const [open, setOpen] = useState(false);
   const quality = buildQuality(q);
   const score = mode === 'state' ? q.stateScore : mode === 'trend' ? q.trendScore : mode === 'bottom' ? q.bottomScore : q.score;
+  const oshimeJudge = quality?.finalJudge || q.totalJudge || q.primaryDecision || q.oshimeLabel || '—';
+  const yugamiJudge = q.statePrimary || q.stateKind || q.stateReason || q.distortionLabel || '—';
+  const trendJudge = q.trendJudge || q.trendType || q.trendEntryLabel || '—';
+  const bottomJudge = q.bottomJudge || q.lowerBaseLabel || q.bottomReason || '—';
   const judge = mode === 'state'
-    ? (q.statePrimary || q.stateKind || '—')
+    ? yugamiJudge
     : mode === 'trend'
-      ? (q.trendJudge || q.trendType || '—')
+      ? trendJudge
       : mode === 'bottom'
-        ? (q.bottomJudge || q.lowerBaseLabel || '—')
-        : (quality?.finalJudge || q.totalJudge || q.primaryDecision || '—');
+        ? bottomJudge
+        : oshimeJudge;
   const mainRR = q.bottomRR ?? q.trendRR ?? q.predictedRR;
   const entry = q.bottomEntryPrice || q.trendEntryPrice || q.oshimePrice;
   const danger = q.bottomDangerScore ?? q.trendDangerScore ?? quality?.dangerScore ?? q.dangerScore;
@@ -1247,20 +1240,26 @@ function MobileQuoteCard({ q, mode, selected, watched = false, companyNote, cred
     <button className="mqFoldHead" type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
       <div className="mqTop">
         <div><b>{q.code}</b><span>{q.name || q.localName || ''}</span></div>
-        <strong className={clsBy(q.changePct)}>{pct(q.changePct)}</strong>
+        <div className="mqRightStack"><strong className={clsBy(q.changePct)}>{pct(q.changePct)}</strong><em className="mqStarRank">{atlas.stars}</em></div>
       </div>
       <div className="mqPrice"><span>{yen(q.price)}</span><small>出来高 {fmt(q.volume)} / {fmt(q.volumeRatio, '倍')}</small></div>
       <div className="mqSpark" onClick={(e) => e.stopPropagation()}><RowSpark q={q} miniChartMode={miniChartMode} miniChartCache={miniChartCache} miniChartLoading={miniChartLoading} onToggleMiniChart={onToggleMiniChart} /></div>
       <div className="mqFoldHint"><span>{open ? '閉じる' : '開く'}</span><em>{judge} / {rrText(mainRR)}</em></div>
     </button>
     {open && <div className="mqFoldBody">
-      <div className="mqMetrics">
-        <div><label>判定</label><b>{judge}</b></div>
-        <div><label>スコア</label><b>{score ?? '—'}</b></div>
+      <div className="mqVerdicts">
+        <div><label>押し目</label><b>{oshimeJudge}</b></div>
+        <div><label>歪み</label><b>{yugamiJudge}</b></div>
+        <div><label>順張り</label><b>{trendJudge}</b></div>
+        <div><label>試し玉</label><b>{bottomJudge}</b></div>
+      </div>
+      <div className="mqMetrics compactMetrics">
         <div><label>RR</label><b className={rrClass(mainRR)}>{rrText(mainRR)}</b></div>
         <div><label>危険</label><b>{danger ?? '—'}</b></div>
+        <div><label>スコア</label><b>{score ?? '—'}</b></div>
       </div>
-      <div className="mqSub">{entry ? `目安 ${yen(entry)}` : (q.stateReason || q.oshimeLabel || q.trendEntryLabel || '詳細で確認')}</div><div className="mqAtlasLine"><span>図鑑</span><b>{atlas.stars}</b><em>{atlas.missing.length ? `未記録: ${atlas.missing.slice(0,2).join(' / ')}` : '記録充実'}</em></div>
+      <div className="mqSub">{entry ? `目安 ${yen(entry)}` : (q.stateReason || q.oshimeLabel || q.trendEntryLabel || '詳細で確認')}</div>
+      <div className="mqAtlasLine compact"><span>図鑑</span><b>{atlas.stars}</b><em>{atlas.missing.length ? `未記録: ${atlas.missing.slice(0,2).join(' / ')}` : '記録充実'}</em></div>
       <div className="mqSubMetrics">
         <span>押し目 {yen(q.oshimePrice || q.bottomEntryPrice || q.trendEntryPrice || q.price)}</span>
         <span>撤退 {yen(q.rrStop || q.bottomStop)}</span>

@@ -3844,5 +3844,13 @@ app.post('/api/research', async (req, res) => {
   } catch (e) { res.status(502).json({ error: e.message }); }
 });
 
-app.use(express.static(path.join(__dirname, 'dist')));
+app.use(express.static(path.join(__dirname, 'dist'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    } else {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  }
+}));
 app.listen(PORT, () => console.log(`相場歪観測機 server: http://localhost:${PORT}`));
