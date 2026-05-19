@@ -1842,14 +1842,26 @@ async function fetchYahooQuote(code, options = {}) {
 
   const meta = result.meta || {};
   const q = result.indicators?.quote?.[0] || {};
-  const closes = (q.close || []).filter(Number.isFinite);
-  const volumes = (q.volume || []).filter(Number.isFinite);
-  const highs = (q.high || []).filter(Number.isFinite);
-  const lows = (q.low || []).filter(Number.isFinite);
-  const price = closes.at(-1) ?? meta.regularMarketPrice;
-  const prev = closes.at(-2) ?? meta.chartPreviousClose;
+  const closesRaw = (q.close || []).filter(Number.isFinite);
+  const volumesRaw = (q.volume || []).filter(Number.isFinite);
+  const highsRaw = (q.high || []).filter(Number.isFinite);
+  const lowsRaw = (q.low || []).filter(Number.isFinite);
+
+  // UX20 price-fix: 日足の最後の終値ではなく、場中の現在値を優先する。
+  const metaPrice = Number(meta.regularMarketPrice);
+  const metaPrev = Number(meta.chartPreviousClose);
+  const metaVolume = Number(meta.regularMarketVolume);
+  const price = Number.isFinite(metaPrice) ? metaPrice : closesRaw.at(-1);
+  const prev = Number.isFinite(metaPrev) ? metaPrev : closesRaw.at(-2);
+  const volume = Number.isFinite(metaVolume) ? metaVolume : volumesRaw.at(-1);
+
+  // テクニカル計算も最後の足だけ現在値へ寄せる。
+  const closes = closesRaw.length ? [...closesRaw.slice(0, -1), price] : [price].filter(Number.isFinite);
+  const volumes = volumesRaw.length ? [...volumesRaw.slice(0, -1), volume] : [volume].filter(Number.isFinite);
+  const highs = highsRaw.length ? [...highsRaw.slice(0, -1), Math.max(Number(highsRaw.at(-1) ?? price), Number(price))] : [price].filter(Number.isFinite);
+  const lows = lowsRaw.length ? [...lowsRaw.slice(0, -1), Math.min(Number(lowsRaw.at(-1) ?? price), Number(price))] : [price].filter(Number.isFinite);
+
   const vol20 = sma(volumes, 20);
-  const volume = volumes.at(-1) ?? meta.regularMarketVolume;
   const changePct = pct(price, prev);
   const jp = withFundamental ? await getJapaneseName(c, meta.shortName || meta.longName || symbol) : cleanJapaneseName(meta.shortName || meta.longName || symbol, c);
   const boll = calcBollinger(closes, highs, lows, price);

@@ -2451,3 +2451,44 @@ button {
   .jsonFreshness.staleSoft { color: #fde68a; border-color: rgba(245,158,11,.38); background: rgba(245,158,11,.10); }
   .jsonFreshness.staleHard { color: #fecaca; border-color: rgba(248,113,113,.38); background: rgba(248,113,113,.10); }
 }
+
+
+/* UX20 refactor patch: 判定 / 記録調査 separation */
+.tabCloseInline {
+  margin-left: auto;
+  border-color: rgba(115,199,255,.35) !important;
+  background: rgba(115,199,255,.08) !important;
+  color: #dff3ff !important;
+}
+.tabCloseFooter {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.tabCloseFooter button { min-width: 120px; }
+.recordResearchPanel .recordInfoBox {
+  border-color: rgba(115,199,255,.28);
+  background: rgba(115,199,255,.06);
+}
+.savedNoteRef {
+  border: 1px solid rgba(115,199,255,.25);
+  background: rgba(115,199,255,.06);
+  border-radius: 12px;
+  padding: 10px;
+  margin: 10px 0;
+}
+.savedNoteRef .muted {
+  margin: 8px 0 0;
+  font-size: 12px;
+}
+.manualPromptBox textarea {
+  width: 100%;
+  resize: vertical;
+}
+@media (max-width: 780px) {
+  .tabCloseInline {
+    margin-left: 0;
+  }
+}

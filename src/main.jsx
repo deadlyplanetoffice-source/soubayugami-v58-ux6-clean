@@ -1414,22 +1414,18 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
     <div className="titleLine"><b>{q.code}</b><span>{q.name || selected.name}</span></div>
     <div className="priceLine"><span>{yen(q.price)}</span><em className={clsBy(q.changePct)}>{pct(q.changePct)}</em></div>
     <div className="badge">{scoreLabel(q.score)} / {q.score}点</div>
-    {!mobile && <div className="detailQuickLinks">
-      {[["summary","結論"],["chart","チャート"],["company","会社"],["ir","材料IR"],["drop","急落"],["links","外部"]].map(([k,label]) => <button key={k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)}>{label}</button>)}
-    </div>}
-
     <div className={mobile ? "detailTabs mobileCompactTabs" : "detailTabs"}>
       {(mobile ? [
         ['summary', '図鑑'],
-        ['deep', '深掘り'],
+        ['deep', '判定'],
         ['chart', 'チャート'],
-        ['confirm', '記録'],
+        ['confirm', '記録調査'],
         ['links', 'リンク'],
       ] : [
         ['summary', '結論'],
         ['chart', 'チャート'],
-        ['company', '会社/材料'],
-        ['note', '調査メモ'],
+        ['company', '判定'],
+        ['note', '記録調査'],
         ['credit', '信用需給'],
         ['tech', '価格/指標'],
         ['state', '状態/歪み'],
@@ -1439,18 +1435,19 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
         ['drop', '急落理由'],
         ['links', '外部リンク'],
       ]).map(([k, label]) => <button key={k} className={normalizedTab === k ? 'active' : ''} onClick={() => setTab(k)}>{label}</button>)}
+      {normalizedTab !== 'summary' && <button className="tabCloseInline" onClick={() => setTab('summary')}>結論へ戻る</button>}
     </div>
 
     {normalizedTab === 'summary' && <SummaryPanel q={q} research={research} ir={ir} companyNote={companyNote} creditNote={creditNote} onWrite={() => setTab('note')} onCredit={() => setTab('credit')} />}
     {normalizedTab === 'chart' && <ChartPanel q={q} />}
     {normalizedTab === 'deep' && <MobileAccordionGroup storageKey={`deep-${q.code}-${deepInitialOpen}`} initialOpenId={deepInitialOpen} intro="項目を選ぶまで中身は開きません。必要な材料だけ開いて確認します。" sections={[
-      { id: 'company', title: '会社/材料', hint: '会社の核・材料・保存済み調査サマリー', content: () => <CompanyPanel q={q} ir={ir} dropReport={dropReport} research={research} companyNote={companyNote} /> },
+      { id: 'company', title: 'AI判定 / 取得情報', hint: 'AI取得情報・材料判定・保存メモ参照', content: () => <CompanyPanel q={q} ir={ir} dropReport={dropReport} research={research} companyNote={companyNote} /> },
       { id: 'state', title: '状態/歪み', hint: '状態タグ・歪みの理由', content: () => <StatePanel q={q} /> },
       { id: 'bottom', title: '試し玉', hint: '下値・反発・危険度', content: () => <BottomPanel q={q} /> },
       { id: 'trend', title: '順張り', hint: '上昇継続・安全度・撤退', content: () => <TrendPanel q={q} /> },
     ]} />}
     {normalizedTab === 'confirm' && <MobileAccordionGroup storageKey={`confirm-${q.code}-${confirmInitialOpen}`} initialOpenId={confirmInitialOpen} intro="図鑑への書き込み・信用需給記録はここです。AIは下書き係、自分で確認して保存します。" sections={[
-      { id: 'note', title: '図鑑に書き込む', hint: 'ChatGPT回答・AI下書きを確認して図鑑メモとして保存', content: () => <CompanyNotePanel q={q} note={companyNote} onSave={(patch) => onUpdateCompanyNote?.(q.code, patch)} onDelete={() => onDeleteCompanyNote?.(q.code)} onSaveAtlas={onSaveAtlas} /> },
+      { id: 'note', title: '記録調査', hint: '調査ログ・AI下書き・図鑑用プロンプト', content: () => <CompanyNotePanel q={q} note={companyNote} onSave={(patch) => onUpdateCompanyNote?.(q.code, patch)} onDelete={() => onDeleteCompanyNote?.(q.code)} onSaveAtlas={onSaveAtlas} /> },
       { id: 'credit', title: '信用需給を記録する', hint: '信用データ貼り付け・抽出・保存', content: () => <CreditBalancePanel q={q} note={creditNote} onSave={(patch) => onUpdateCreditNote?.(q.code, patch)} onDelete={() => onDeleteCreditNote?.(q.code)} onSaveAtlas={onSaveAtlas} /> },
       { id: 'tech', title: '価格/指標', hint: '価格帯・出来高・指標確認', content: () => <TechnicalPanel q={q} /> },
       { id: 'ir', title: 'IR/ニュース', hint: '直近材料と更新', content: () => <IrPanel ir={ir} loading={irLoading} error={irError} onReload={onReloadIr} q={q} /> },
@@ -1466,6 +1463,7 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
     {normalizedTab === 'ir' && <IrPanel ir={ir} loading={irLoading} error={irError} onReload={onReloadIr} q={q} />}
     {normalizedTab === 'drop' && <DropReasonPanel report={dropReport} loading={dropLoading} onInvestigate={onInvestigate} q={q} />}
     {normalizedTab === 'links' && <LinksPanel links={links} q={q} />}
+    {normalizedTab !== 'summary' && <div className="tabCloseFooter"><button className="sub" onClick={() => setTab('summary')}>タブを閉じる</button></div>}
   </div>;
 }
 
@@ -1946,7 +1944,9 @@ function CompanyNotePanel({ q, note, onSave, onDelete, onSaveAtlas }) {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiState, setAiState] = useState('');
   const [aiDraft, setAiDraft] = useState('');
-  useEffect(() => { setRaw(normalizeResearchNote(note).raw || ''); setSaved(false); setAiState(''); setAiDraft(''); }, [q?.code, note?.updatedAt]);
+  const [copyState, setCopyState] = useState('');
+  const [manualPrompt, setManualPrompt] = useState('');
+  useEffect(() => { setRaw(normalizeResearchNote(note).raw || ''); setSaved(false); setAiState(''); setAiDraft(''); setCopyState(''); setManualPrompt(''); }, [q?.code, note?.updatedAt]);
 
   async function pasteRaw() {
     try {
@@ -1970,7 +1970,7 @@ function CompanyNotePanel({ q, note, onSave, onDelete, onSaveAtlas }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'AI調査に失敗しました');
       setAiDraft(String(data.text || ''));
-      setAiState('AI下書きを作成しました。採用/追記/破棄を選んでから図鑑へ保存してください。');
+      setAiState('AI下書きを作成しました。採用/追記/破棄を選んでから記録保存してください。');
     } catch (e) {
       setAiState(`AI調査失敗：${e.message}`);
     } finally {
@@ -1985,27 +1985,88 @@ function CompanyNotePanel({ q, note, onSave, onDelete, onSaveAtlas }) {
     setTimeout(() => setSaved(false), 1600);
   }
 
+  function buildAtlasPrompt() {
+    const source = String(raw || note?.raw || '').trim();
+    return `以下の日本株について、私が貼り付けた調査ログをもとに、Company Atlas（会社図鑑）用の保存メモを作成してください。
+
+【対象銘柄】
+コード：${q.code}
+銘柄名：${q.name}
+
+【目的】
+この回答は Company Atlas に保存し、今後の押し目スキャナーや自分の売買判断の参照に使います。
+単なる会社説明ではなく、「会社の核」「レジーム変化」「成長材料」「資金調達・希薄化」「リスク」「押し目判断」を短く明確に整理してください。
+
+【重要】
+・以下の貼り付けメモに含まれる情報を優先してください。
+・貼り付けメモにない情報を断定しないでください。
+・未確認の情報は必ず「未確認」と明記してください。
+・事実、推測、暫定判断を分けてください。
+・銘柄名ではなく、今後も再利用できる型分類も入れてください。
+・株価診断そのものは流動的なので、会社理解と材料の質を中心にしてください。
+
+【貼り付け調査ログ】
+${source || 'ここに調査ログはまだ貼り付けられていません。必要なら、先に記録調査タブへ貼り付けてください。'}
+
+【出力形式】
+最後に、必ず以下の固定見出しで「図鑑用編集版」を作ってください。
+
+【会社の核】
+【レジーム変化・大型材料】
+【成長材料】
+【資金調達・希薄化の評価】
+【リスク】
+【株価を見るポイント】
+【押し目判断】
+【自分用の暫定判断】
+
+各項目は長すぎず、あとでアプリに貼り付けやすい密度で整理してください。`;
+  }
+
+  async function copyAtlasPrompt() {
+    const prompt = buildAtlasPrompt();
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setManualPrompt('');
+      setCopyState('copied');
+      setTimeout(() => setCopyState(''), 1600);
+    } catch {
+      setManualPrompt(prompt);
+      setCopyState('failed');
+      setTimeout(() => setCopyState(''), 2500);
+    }
+  }
+
   const hasRaw = String(raw || '').trim().length > 0;
-  return <div className="companyNotePanel simpleNotePanel">
+  return <div className="companyNotePanel simpleNotePanel recordResearchPanel">
     <div className="companyHeader noteHeader">
-      <div><div className="smallTitle">図鑑書き込み</div><h3>{q.code} {q.name}</h3></div>
+      <div><div className="smallTitle">記録調査</div><h3>{q.code} {q.name}</h3></div>
       <div className="companyActions compactActions">
-        <button title="クリップボードから回答を貼り付け" onClick={pasteRaw}>貼付</button>
+        <button title="クリップボードから調査ログを貼り付け" onClick={pasteRaw}>貼付</button>
         <button title="AI下書きを作成" onClick={autoResearchAI} disabled={aiLoading}>{aiLoading ? 'AI中' : 'AI案'}</button>
-        <button className="aiResearchBtn" title="この銘柄の図鑑メモを保存" onClick={saveNow}>{saved ? '済' : '保存'}</button>
+        <button className="aiResearchBtn" title="この銘柄の記録を保存" onClick={saveNow}>{saved ? '済' : '保存'}</button>
+        <button className="sub" title="Company Atlas用プロンプトをコピー" onClick={copyAtlasPrompt}>{copyState === 'copied' ? '図鑑P済' : '図鑑P'}</button>
+        {onSaveAtlas && <button className="sub saveAtlasMini" title="図鑑JSONを保存" onClick={onSaveAtlas}>JSON保存</button>}
         {note && <button className="sub dangerMini" title="この銘柄の保存済み調査メモを削除" onClick={() => { if (window.confirm('この銘柄の保存済み調査メモを削除しますか？')) onDelete?.(); }}>削除</button>}
       </div>
     </div>
+
+    <div className="promptInfoBox recordInfoBox">
+      <b>記録調査の役割</b>
+      <p>ここは、自分で調べたIR・決算・ニュース・ChatGPT回答・AI下書きを保存する場所です。AIが回収した情報と判定は「判定」タブ、保存・図鑑化はこの「記録調査」タブに分けます。</p>
+    </div>
+
     {aiState && <p className="mobileHint">{aiState}</p>}
+    {copyState === 'failed' && <div className="miniError aiError">自動コピーに失敗しました。下に表示されたプロンプトを手動でコピーしてください。</div>}
+    {manualPrompt && <div className="manualPromptBox"><div className="smallTitle">手動コピー用：図鑑プロンプト</div><textarea rows={10} value={manualPrompt} readOnly onFocus={(e) => e.currentTarget.select()} /></div>}
     {aiDraft && <div className="aiDraftReview"><h4>AI下書き（採用前確認）</h4><textarea value={aiDraft} readOnly rows={10} /><div><button title="AI下書きで現在の貼付欄を置き換え" onClick={() => { setRaw(aiDraft); setAiDraft(''); setAiState('AI下書きを貼り付け欄に採用しました。内容確認後に保存してください。'); }}>採用</button><button title="AI下書きを現在メモの末尾に追加" onClick={() => { setRaw(`${raw}${raw.trim() ? '\n\n--- AI下書き ---\n' : ''}${aiDraft}`); setAiDraft(''); setAiState('AI下書きを現在メモに追記しました。'); }}>追記</button><button className="sub" title="AI下書きを破棄" onClick={() => { setAiDraft(''); setAiState('AI下書きを破棄しました。'); }}>破棄</button></div></div>}
-    <label className="noteField raw onlyRaw"><span>ChatGPT回答全文・調査ログ</span><textarea rows={18} value={raw} placeholder="ここにChatGPT回答・AI下書き・自分の会社メモを貼り付け。保存すると図鑑カードに反映されます。" onChange={(e) => setRaw(e.target.value)} /></label>
+    <label className="noteField raw onlyRaw"><span>調査ログ / ChatGPT回答 / IRメモ貼り付け欄</span><textarea rows={18} value={raw} placeholder="ここに自分で調べた内容、ChatGPT回答、IRメモ、決算メモ、AI下書きを貼り付け。保存すると図鑑カードに反映されます。" onChange={(e) => setRaw(e.target.value)} /></label>
     <div className="noteSimpleFooter">
       <span>{hasRaw ? `${raw.length.toLocaleString('ja-JP')}文字` : '未入力'}</span>
-      <span>保存すると図鑑完成度に反映され、次回プロンプトにも含まれます。</span>
+      <span>保存すると図鑑完成度に反映され、判定タブの会社調査プロンプトにも含まれます。</span>
     </div>
   </div>;
 }
-
 
 function parseCreditNumber(v) {
   if (v == null) return null;
@@ -2714,7 +2775,7 @@ ${recentItems.length ? recentItems.map(fmtLine).join('\n') : '取得なし'}
 
   return <section className="companyPanel researchMode">
     <div className="companyHeader">
-      <div><div className="smallTitle">会社調査 / 深掘り</div><h3>{q.code} {q.name}</h3></div>
+      <div><div className="smallTitle">AI判定 / 取得情報</div><h3>{q.code} {q.name}</h3></div>
       <div className="companyActions">
         {loading && <span className="loadingPill">調査中…</span>}
         <button onClick={() => loadResearch(true)} disabled={loading}>{loading ? '調査中' : '再調査'}</button>
@@ -2727,14 +2788,14 @@ ${recentItems.length ? recentItems.map(fmtLine).join('\n') : '取得なし'}
     {copyState === 'failed' && <div className="miniError aiError">自動コピーに失敗しました。下に表示されたプロンプトを手動でコピーしてください。</div>}
     {manualPrompt && <div className="manualPromptBox"><div className="smallTitle">手動コピー用プロンプト</div><textarea rows={10} value={manualPrompt} readOnly onFocus={(e) => e.currentTarget.select()} /></div>}
     <div className="promptInfoBox">
-      <b>ChatGPT調査連携</b>
-      <p>この銘柄の価格・IR・ニュース・取得済み会社情報をまとめた調査依頼文をコピーします。AppボタンはChatGPTアプリ起動用です。Web版は開きません。</p>
+      <b>AI判定の使い方</b>
+      <p>アプリが取得した価格・IR・ニュース・会社情報をもとに、銘柄を見る論点を整理します。保存や図鑑化の起点は「記録調査」タブです。</p>
     </div>
-    {companyNote && <SavedNoteSummary note={companyNote} onOpen={() => window.dispatchEvent(new CustomEvent('openCompanyNoteTab'))} />}
+    {companyNote && <div className="savedNoteRef"><div className="smallTitle">記録調査タブで保存されたメモ（参照）</div><SavedNoteSummary note={companyNote} onOpen={() => window.dispatchEvent(new CustomEvent('openCompanyNoteTab'))} /><p className="muted">編集・追記は「記録調査」タブで行います。</p></div>}
 
     <div className={`companyStance ${summary?.className || 'wait'}`}>
       <b>{chatty?.headline || summary?.judgement || '会社情報・直近材料を調査しています。'}</b>
-      <p>ここでは取得できた事実・IR/ニュース・事業論点を分けて表示します。テンプレ推測と実材料を混ぜず、最後はプロンプト調査で確認します。</p>
+      <p>ここではアプリが取得したIR・ニュース・事業情報と、その判定を表示します。自分で調べて貼る一次メモは「記録調査」タブに集約します。</p>
     </div>
 
     <div className="profileMeta">
@@ -2775,7 +2836,7 @@ ${recentItems.length ? recentItems.map(fmtLine).join('\n') : '取得なし'}
 
     <div className="researchBlock materialDrill">
       <div className="materialHead">
-        <h4>材料の深掘り</h4>
+        <h4>材料判定</h4>
         <span>好材料 {goodMaterials.length} / 悪材料 {badMaterials.length} / 確認 {neutralMaterials.length}</span>
       </div>
       <div className="materialDrillGrid">
