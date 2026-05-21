@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = '相場歪観測機 v58 UX20';
+const APP_VERSION = '相場歪観測機 v58 UX20.1';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -854,6 +854,7 @@ function App() {
 
 
   function buildLocalPayload(overrides = {}) {
+    const isDebug = typeof window !== 'undefined' && window.location.search.includes('debug=1');
     return {
       app: 'soubayugami-kansokuki',
       version: APP_VERSION,
@@ -871,6 +872,10 @@ function App() {
       sortSpec,
       companyResearchNotes: companyNotes,
       creditBalanceNotes: creditNotes,
+      ...(isDebug ? {
+        _debugQuotes: quotes,
+        _debugCapturedAt: new Date().toISOString(),
+      } : {}),
       ...overrides,
     };
   }

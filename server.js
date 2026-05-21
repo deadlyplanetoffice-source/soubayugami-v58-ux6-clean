@@ -406,17 +406,6 @@ function localSymbol(code) {
 function compactText(s) { return String(s || '').toLowerCase().replace(/[\s　・･・()（）\[\]【】株式会社㈱ホールディングスhdＨＤ]/g, ''); }
 function yen(n) { return Number.isFinite(n) ? Math.round(n * 10) / 10 : null; }
 function pct(a, b) { return Number.isFinite(a) && Number.isFinite(b) && b !== 0 ? ((a - b) / b) * 100 : null; }
-function normalizeChangePct(raw, fallback = null) {
-  // Yahoo系APIの変化率は取得経路で「2.34」(%値)と「0.0234」(比率値)が混在しうる。
-  // 表示・判定用は必ず「%値」に統一する。
-  const n = Number(raw);
-  if (Number.isFinite(n)) {
-    const pctValue = Math.abs(n) <= 1 ? n * 100 : n;
-    return Math.round(pctValue * 100) / 100;
-  }
-  const f = Number(fallback);
-  return Number.isFinite(f) ? Math.round(f * 100) / 100 : null;
-}
 function avg(values) { return values.reduce((a,b)=>a+b,0)/values.length; }
 function sma(values, n) { const nums = values.filter(Number.isFinite); return nums.length >= n ? avg(nums.slice(-n)) : null; }
 function std(values) { if (!values.length) return null; const m = avg(values); return Math.sqrt(avg(values.map(v => (v - m) ** 2))); }
@@ -1853,35 +1842,25 @@ async function fetchYahooQuote(code, options = {}) {
 
   const meta = result.meta || {};
   const q = result.indicators?.quote?.[0] || {};
-
-  // UX20 quote-v7-fix:
-  // chart API(v8)の chartPreviousClose が場中にズレるケースがあり、
-  // price / prevClose 計算だと前日比が一桁大きく出ることがある。
-  // 現在値・前日終値・前日比は quote API(v7)を優先する。
-  let liveRaw = null;
-  try {
-    const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`;
-    const quoteData = await fetchJsonSmart(quoteUrl, 6000, 1, 0);
-    liveRaw = quoteData?.quoteResponse?.result?.[0] || null;
-  } catch {}
-
   const closesRaw = (q.close || []).filter(Number.isFinite);
   const volumesRaw = (q.volume || []).filter(Number.isFinite);
   const highsRaw = (q.high || []).filter(Number.isFinite);
   const lowsRaw = (q.low || []).filter(Number.isFinite);
 
   // UX20 price-fix: 日足の最後の終値ではなく、場中の現在値を優先する。
-  const livePrice = nval(liveRaw?.regularMarketPrice ?? liveRaw?.postMarketPrice ?? liveRaw?.preMarketPrice);
-  const livePrev = nval(liveRaw?.regularMarketPreviousClose);
-  const liveVolume = nval(liveRaw?.regularMarketVolume);
-  const liveChangePct = liveRaw?.regularMarketChangePercent;
-
   const metaPrice = Number(meta.regularMarketPrice);
-  const metaPrev = Number(meta.chartPreviousClose);
+  // previousClose = 前日終値。chartPreviousClose は「チャート範囲の前日」なので、
+  // range=1y では約1年前の終値になり、前日比として使うと年初来/1年比に近い異常値になる。
+  const metaPrev = Number(
+    meta.previousClose ??
+    meta.regularMarketPreviousClose ??
+    closesRaw.at(-2) ??
+    meta.chartPreviousClose
+  );
   const metaVolume = Number(meta.regularMarketVolume);
-  const price = Number.isFinite(livePrice) ? livePrice : (Number.isFinite(metaPrice) ? metaPrice : closesRaw.at(-1));
-  const prev = Number.isFinite(livePrev) ? livePrev : (Number.isFinite(metaPrev) ? metaPrev : closesRaw.at(-2));
-  const volume = Number.isFinite(liveVolume) ? liveVolume : (Number.isFinite(metaVolume) ? metaVolume : volumesRaw.at(-1));
+  const price = Number.isFinite(metaPrice) ? metaPrice : closesRaw.at(-1);
+  const prev = Number.isFinite(metaPrev) ? metaPrev : closesRaw.at(-2);
+  const volume = Number.isFinite(metaVolume) ? metaVolume : volumesRaw.at(-1);
 
   // テクニカル計算も最後の足だけ現在値へ寄せる。
   const closes = closesRaw.length ? [...closesRaw.slice(0, -1), price] : [price].filter(Number.isFinite);
@@ -1890,8 +1869,7 @@ async function fetchYahooQuote(code, options = {}) {
   const lows = lowsRaw.length ? [...lowsRaw.slice(0, -1), Math.min(Number(lowsRaw.at(-1) ?? price), Number(price))] : [price].filter(Number.isFinite);
 
   const vol20 = sma(volumes, 20);
-  const calcChangePct = pct(price, prev);
-  const changePct = normalizeChangePct(liveChangePct, calcChangePct);
+  const changePct = pct(price, prev);
   const jp = withFundamental ? await getJapaneseName(c, meta.shortName || meta.longName || symbol) : cleanJapaneseName(meta.shortName || meta.longName || symbol, c);
   const boll = calcBollinger(closes, highs, lows, price);
   const trend = calcTrendMetrics(closes, highs, lows, volumes, price, prev, boll);
@@ -1904,7 +1882,7 @@ async function fetchYahooQuote(code, options = {}) {
     fundamental,
     per: fundamental?.per ?? null, pbr: fundamental?.pbr ?? null, dividendYield: fundamental?.dividendYield ?? null, marketCap: fundamental?.marketCap ?? null, marketCapLabel: fundamental?.marketCapLabel ?? null,
     price: yen(price), prevClose: yen(prev), change: yen(price - prev),
-    changePct,
+    changePct: changePct == null ? null : Math.round(changePct * 100) / 100,
     volume, volumeAvg20: vol20 ? Math.round(vol20) : null,
     volumeRatio: vol20 ? Math.round((volume / vol20) * 100) / 100 : null,
     closes60: closes.slice(-60).map((v) => yen(v)),
@@ -2536,7 +2514,6 @@ function yahooQuoteLiteFromRaw(raw = {}, component = {}) {
   const price = nval(raw.regularMarketPrice ?? raw.postMarketPrice ?? raw.preMarketPrice);
   const prev = nval(raw.regularMarketPreviousClose ?? raw.regularMarketOpen);
   const volume = nval(raw.regularMarketVolume ?? raw.averageDailyVolume10Day ?? raw.averageDailyVolume3Month);
-  const calcChangePct = Number.isFinite(price) && Number.isFinite(prev) && prev !== 0 ? ((price - prev) / prev) * 100 : null;
   return {
     code,
     symbol: normalizeCode(code),
@@ -2545,7 +2522,7 @@ function yahooQuoteLiteFromRaw(raw = {}, component = {}) {
     market: component.market || '',
     price,
     prevClose: prev,
-    changePct: normalizeChangePct(raw.regularMarketChangePercent, calcChangePct),
+    changePct: Number.isFinite(price) && Number.isFinite(prev) && prev !== 0 ? Math.round(((price - prev) / prev) * 10000) / 100 : null,
     volume,
     source: 'Yahoo quote prefilter',
   };
