@@ -2492,3 +2492,47 @@ button {
     margin-left: 0;
   }
 }
+
+
+/* UX21 overshoot + unified company research */
+.fourMetrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.hotMetric b,
+.score.hot {
+  color: #86efac;
+  text-shadow: 0 0 12px rgba(74,222,128,.35);
+}
+.researchToolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 12px 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(115,199,255,.06);
+}
+.copyMini {
+  font-size: 12px;
+  color: #86efac;
+}
+.unifiedCompanyResearch .noteSimpleFooter {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.unifiedCompanyResearch .noteSimpleFooter button {
+  margin-left: auto;
+}
+@media (max-width: 780px) {
+  .fourMetrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .unifiedCompanyResearch .noteSimpleFooter button {
+    margin-left: 0;
+    width: 100%;
+  }
+}

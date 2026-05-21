@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = '相場歪観測機 v58 UX20.1';
+const APP_VERSION = '相場歪観測機 v58 UX21';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -738,6 +738,7 @@ function App() {
     let list = [...quotes].filter((q) => !q.error);
     if (scannerMode === 'state') {
       if (filter === 'distortion') list = list.filter((q) => /歪み|期待値/.test([...(q.stateTags || []), q.statePrimary || ''].join(' ')) || (q.distortionScore || 0) >= 50);
+      if (filter === 'overshoot') list = list.filter((q) => (q.overshootScore || 0) >= 50);
       if (filter === 'trial') list = list.filter((q) => /試し玉|反発|戻り/.test([...(q.stateActions || []), q.statePrimary || ''].join(' ')));
       if (filter === 'trend') list = list.filter((q) => /上昇|ブレイク|浅押し|反転初動|下降抜け/.test([...(q.stateTags || []), q.statePrimary || ''].join(' ')));
       if (filter === 'risk') list = list.filter((q) => /小ロット|材料確認|出来高投げ|待ち/.test((q.stateConstraints || []).join(' ')) || (q.materialSeverity || 0) >= 70);
@@ -782,6 +783,7 @@ function App() {
         pbr: Number(q.pbr),
         dividendYield: Number(q.dividendYield),
         stateScore: Number(q.stateScore),
+        overshootScore: Number(q.overshootScore),
         distortionScore: Number(q.distortionScore),
         healthScore: Number(q.healthScore),
         materialSeverity: Number(q.materialSeverity),
@@ -992,7 +994,7 @@ function App() {
   const mobileSourceButtons = [['watch','監視'],['all','全候補'],['growth','グロース'],['prime','プライム'],['nikkei225','日経225'],['standard','スタンダード'],['topix','TOPIX近似']];
   const mobileModeButtons = [['state','状態'],['oshime','押し目'],['bottom','試し玉'],['trend','順張り']];
   const mobileFilterButtons = scannerMode === 'state'
-    ? [['all','全部'],['trend','上昇'],['trial','試し'],['distortion','歪み'],['avoid','回避']]
+    ? [['all','全部'],['trend','上昇'],['trial','試し'],['distortion','歪み'],['overshoot','歪み度50+'],['avoid','回避']]
     : scannerMode === 'trend'
       ? [['all','全部'],['oshime','候補'],['breakout','ブレイク'],['sustained','持続'],['down','過熱'],['rr','RR']]
       : scannerMode === 'bottom'
@@ -1197,7 +1199,7 @@ function App() {
           </div>
           <div className="scannerControls">
             <div className="sourceTabs modeSwitch"><button className={scannerMode === 'state' ? 'active' : ''} onClick={() => { setScannerMode('state'); setFilter('all'); }}>状態タグ</button><button className={scannerMode === 'oshime' ? 'active' : ''} onClick={() => { setScannerMode('oshime'); setFilter('all'); }}>押し目</button><button className={scannerMode === 'bottom' ? 'active' : ''} onClick={() => { setScannerMode('bottom'); setFilter('all'); }}>試し玉/戻り</button><button className={scannerMode === 'trend' ? 'active' : ''} onClick={() => { setScannerMode('trend'); setFilter('all'); }}>順張り</button></div>
-            <div className="tabs">{(scannerMode === 'state' ? [['all','全部'],['trend','上昇継続'],['trial','試し玉'],['distortion','歪み'],['watch','観察'],['avoid','回避']] : scannerMode === 'trend' ? [['all','全部'],['oshime','候補'],['breakout','ブレイク'],['sustained','持続上昇'],['down','過熱/危険'],['rr','RR良']] : scannerMode === 'bottom' ? [['all','全部'],['trial','試し玉'],['rebound','戻り'],['raise','下値'],['slow','緩上昇'],['danger','高リスク'],['rr','RR良']] : [['all','全部'],['oshime','押し目'],['down','下落'],['rr','RR良']]).map(([k,label]) => <button key={k} className={filter===k?'active':''} onClick={() => setFilter(k)}>{label}</button>)}</div>
+            <div className="tabs">{(scannerMode === 'state' ? [['all','全部'],['trend','上昇継続'],['trial','試し玉'],['distortion','歪み'],['overshoot','歪み度50+'],['watch','観察'],['avoid','回避']] : scannerMode === 'trend' ? [['all','全部'],['oshime','候補'],['breakout','ブレイク'],['sustained','持続上昇'],['down','過熱/危険'],['rr','RR良']] : scannerMode === 'bottom' ? [['all','全部'],['trial','試し玉'],['rebound','戻り'],['raise','下値'],['slow','緩上昇'],['danger','高リスク'],['rr','RR良']] : [['all','全部'],['oshime','押し目'],['down','下落'],['rr','RR良']]).map(([k,label]) => <button key={k} className={filter===k?'active':''} onClick={() => setFilter(k)}>{label}</button>)}</div>
           </div>
         </div>
         <div className="tableWrap">
@@ -1258,10 +1260,11 @@ function MobileQuoteCard({ q, mode, selected, watched = false, companyNote, cred
         <div><label>順張り</label><b>{trendJudge}</b></div>
         <div><label>試し玉</label><b>{bottomJudge}</b></div>
       </div>
-      <div className="mqMetrics compactMetrics">
-        <div><label>RR</label><b className={rrClass(mainRR)}>{rrText(mainRR)}</b></div>
-        <div><label>危険</label><b>{danger ?? '—'}</b></div>
+      <div className="mqMetrics compactMetrics fourMetrics">
+        <div><label>状態</label><b>{q.stateScore ?? score ?? '—'}</b></div>
         <div><label>スコア</label><b>{score ?? '—'}</b></div>
+        <div className={(q.overshootScore || 0) >= 45 ? 'hotMetric' : ''}><label>歪み度</label><b>{q.overshootScore ?? '—'}</b></div>
+        <div><label>危険</label><b>{danger ?? '—'}</b></div>
       </div>
       <div className="mqSub">{entry ? `目安 ${yen(entry)}` : (q.stateReason || q.oshimeLabel || q.trendEntryLabel || '詳細で確認')}</div>
       <div className="mqAtlasLine compact"><span>図鑑</span><b>{atlas.stars}</b><em>{atlas.missing.length ? `未記録: ${atlas.missing.slice(0,2).join(' / ')}` : '記録充実'}</em></div>
@@ -1355,8 +1358,8 @@ function DetailJump({ q, onOpenDetail, tabs = [] }) {
 
 function ScannerTable({ mode, rows, selected, onOpenDetail, sortSpec, setSortSpec, miniChartMode, miniChartCache, miniChartLoading, onToggleMiniChart, companyNotes = {} }) {
   if (mode === 'state') return <table className="scannerTable stateTable compactDecisionTable"><thead><tr>
-    <SortTh id="code" label="銘柄" sortSpec={sortSpec} setSortSpec={setSortSpec} /><th>形</th><SortTh id="price" label="現在値" sortSpec={sortSpec} setSortSpec={setSortSpec} /><SortTh id="changePct" label="前日比" sortSpec={sortSpec} setSortSpec={setSortSpec} /><SortTh id="volume" label="出来高" sortSpec={sortSpec} setSortSpec={setSortSpec} /><SortTh id="stateScore" label="観察" sortSpec={sortSpec} setSortSpec={setSortSpec} /><th>主判定</th><th>理由</th><th>注意</th><th>RR</th><th>移動</th>
-  </tr></thead><tbody>{rows.map((q) => <tr key={q.code} className={selected?.code === q.code ? 'selected' : ''} onClick={() => onOpenDetail(q, 'summary')}><td><b>{q.code}</b><span>{q.name}</span>{companyNotes[String(q.code)] && <em className="researchedMini">調査済</em>}</td><td><RowSpark q={q} miniChartMode={miniChartMode} miniChartCache={miniChartCache} miniChartLoading={miniChartLoading} onToggleMiniChart={onToggleMiniChart} /></td><td>{fmt(q.price)}</td><td className={clsBy(q.changePct)}>{pct(q.changePct)}</td><td><b>{fmt(q.volume)}</b><span>{fmt(q.volumeRatio, '倍')}</span></td><td><span className={`score ${trendClass(q.stateScore)}`}>{q.stateScore ?? '—'}</span></td><td><span className={`pill tiny ${stateKindClass(q.stateKind || q.statePrimary)}`}>{q.statePrimary || '—'}</span></td><td><span>{q.stateReason || '—'}</span></td><td><span className="muted">{q.stateCaution || '—'}</span></td><td className={rrClass(q.bottomRR ?? q.predictedRR)}>{rrText(q.bottomRR ?? q.predictedRR)}</td><td><DetailJump q={q} onOpenDetail={onOpenDetail} tabs={[["summary","結論"],["state","状態"],["chart","チャート"],["ir","IR"]]} /></td></tr>)}</tbody></table>;
+    <SortTh id="code" label="銘柄" sortSpec={sortSpec} setSortSpec={setSortSpec} /><th>形</th><SortTh id="price" label="現在値" sortSpec={sortSpec} setSortSpec={setSortSpec} /><SortTh id="changePct" label="前日比" sortSpec={sortSpec} setSortSpec={setSortSpec} /><SortTh id="volume" label="出来高" sortSpec={sortSpec} setSortSpec={setSortSpec} /><SortTh id="stateScore" label="観察" sortSpec={sortSpec} setSortSpec={setSortSpec} /><SortTh id="overshootScore" label="歪み度" sortSpec={sortSpec} setSortSpec={setSortSpec} /><th>主判定</th><th>理由</th><th>注意</th><th>RR</th><th>移動</th>
+  </tr></thead><tbody>{rows.map((q) => <tr key={q.code} className={selected?.code === q.code ? 'selected' : ''} onClick={() => onOpenDetail(q, 'summary')}><td><b>{q.code}</b><span>{q.name}</span>{companyNotes[String(q.code)] && <em className="researchedMini">調査済</em>}</td><td><RowSpark q={q} miniChartMode={miniChartMode} miniChartCache={miniChartCache} miniChartLoading={miniChartLoading} onToggleMiniChart={onToggleMiniChart} /></td><td>{fmt(q.price)}</td><td className={clsBy(q.changePct)}>{pct(q.changePct)}</td><td><b>{fmt(q.volume)}</b><span>{fmt(q.volumeRatio, '倍')}</span></td><td><span className={`score ${trendClass(q.stateScore)}`}>{q.stateScore ?? '—'}</span></td><td><span className={`score ${(q.overshootScore || 0) >= 45 ? 'hot' : trendClass(q.overshootScore)}`}>{q.overshootScore ?? '—'}</span></td><td><span className={`pill tiny ${stateKindClass(q.stateKind || q.statePrimary)}`}>{q.statePrimary || '—'}</span></td><td><span>{q.stateReason || '—'}</span></td><td><span className="muted">{q.stateCaution || '—'}</span></td><td className={rrClass(q.bottomRR ?? q.predictedRR)}>{rrText(q.bottomRR ?? q.predictedRR)}</td><td><DetailJump q={q} onOpenDetail={onOpenDetail} tabs={[["summary","結論"],["state","状態"],["chart","チャート"],["ir","IR"]]} /></td></tr>)}</tbody></table>;
 
   if (mode === 'bottom') return <table className="scannerTable"><thead><tr>
     <SortTh id="code" label="銘柄" sortSpec={sortSpec} setSortSpec={setSortSpec} /><th>形</th><SortTh id="price" label="現在値" sortSpec={sortSpec} setSortSpec={setSortSpec} /><SortTh id="changePct" label="前日比" sortSpec={sortSpec} setSortSpec={setSortSpec} /><SortTh id="volume" label="出来高" sortSpec={sortSpec} setSortSpec={setSortSpec} /><th>試し目安</th><SortTh id="bottomScore" label="観察" sortSpec={sortSpec} setSortSpec={setSortSpec} /><SortTh id="reboundScore" label="戻り" sortSpec={sortSpec} setSortSpec={setSortSpec} /><SortTh id="lowerBaseScore" label="下値" sortSpec={sortSpec} setSortSpec={setSortSpec} /><SortTh id="bottomDanger" label="制約" sortSpec={sortSpec} setSortSpec={setSortSpec} /><SortTh id="bottomRR" label="短期RR" sortSpec={sortSpec} setSortSpec={setSortSpec} /><th>判定</th><th>移動</th>
@@ -1429,8 +1432,7 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
       ] : [
         ['summary', '結論'],
         ['chart', 'チャート'],
-        ['company', '判定'],
-        ['note', '記録調査'],
+                ['note', '記録調査'],
         ['credit', '信用需給'],
         ['tech', '価格/指標'],
         ['state', '状態/歪み'],
@@ -1446,20 +1448,18 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
     {normalizedTab === 'summary' && <SummaryPanel q={q} research={research} ir={ir} companyNote={companyNote} creditNote={creditNote} onWrite={() => setTab('note')} onCredit={() => setTab('credit')} />}
     {normalizedTab === 'chart' && <ChartPanel q={q} />}
     {normalizedTab === 'deep' && <MobileAccordionGroup storageKey={`deep-${q.code}-${deepInitialOpen}`} initialOpenId={deepInitialOpen} intro="項目を選ぶまで中身は開きません。必要な材料だけ開いて確認します。" sections={[
-      { id: 'company', title: 'AI判定 / 取得情報', hint: 'AI取得情報・材料判定・保存メモ参照', content: () => <CompanyPanel q={q} ir={ir} dropReport={dropReport} research={research} companyNote={companyNote} /> },
       { id: 'state', title: '状態/歪み', hint: '状態タグ・歪みの理由', content: () => <StatePanel q={q} /> },
       { id: 'bottom', title: '試し玉', hint: '下値・反発・危険度', content: () => <BottomPanel q={q} /> },
       { id: 'trend', title: '順張り', hint: '上昇継続・安全度・撤退', content: () => <TrendPanel q={q} /> },
     ]} />}
     {normalizedTab === 'confirm' && <MobileAccordionGroup storageKey={`confirm-${q.code}-${confirmInitialOpen}`} initialOpenId={confirmInitialOpen} intro="図鑑への書き込み・信用需給記録はここです。AIは下書き係、自分で確認して保存します。" sections={[
-      { id: 'note', title: '記録調査', hint: '調査ログ・AI下書き・図鑑用プロンプト', content: () => <CompanyNotePanel q={q} note={companyNote} onSave={(patch) => onUpdateCompanyNote?.(q.code, patch)} onDelete={() => onDeleteCompanyNote?.(q.code)} onSaveAtlas={onSaveAtlas} /> },
+      { id: 'note', title: '会社調査', hint: 'AI取得・プロンプト・図鑑メモ保存を1画面で完結', content: () => <UnifiedCompanyResearchPanel q={q} ir={ir} dropReport={dropReport} research={research} note={companyNote} onSave={(patch) => onUpdateCompanyNote?.(q.code, patch)} onDelete={() => onDeleteCompanyNote?.(q.code)} onSaveAtlas={onSaveAtlas} /> },
       { id: 'credit', title: '信用需給を記録する', hint: '信用データ貼り付け・抽出・保存', content: () => <CreditBalancePanel q={q} note={creditNote} onSave={(patch) => onUpdateCreditNote?.(q.code, patch)} onDelete={() => onDeleteCreditNote?.(q.code)} onSaveAtlas={onSaveAtlas} /> },
       { id: 'tech', title: '価格/指標', hint: '価格帯・出来高・指標確認', content: () => <TechnicalPanel q={q} /> },
       { id: 'ir', title: 'IR/ニュース', hint: '直近材料と更新', content: () => <IrPanel ir={ir} loading={irLoading} error={irError} onReload={onReloadIr} q={q} /> },
       { id: 'drop', title: '急落理由', hint: '急落調査・悪材料確認', content: () => <DropReasonPanel report={dropReport} loading={dropLoading} onInvestigate={onInvestigate} q={q} /> },
     ]} />}
-    {normalizedTab === 'company' && <CompanyPanel q={q} ir={ir} dropReport={dropReport} research={research} companyNote={companyNote} />}
-    {normalizedTab === 'note' && <CompanyNotePanel q={q} note={companyNote} onSave={(patch) => onUpdateCompanyNote?.(q.code, patch)} onDelete={() => onDeleteCompanyNote?.(q.code)} onSaveAtlas={onSaveAtlas} />}
+        {normalizedTab === 'note' && <UnifiedCompanyResearchPanel q={q} ir={ir} dropReport={dropReport} research={research} note={companyNote} onSave={(patch) => onUpdateCompanyNote?.(q.code, patch)} onDelete={() => onDeleteCompanyNote?.(q.code)} onSaveAtlas={onSaveAtlas} />}
     {normalizedTab === 'credit' && <CreditBalancePanel q={q} note={creditNote} onSave={(patch) => onUpdateCreditNote?.(q.code, patch)} onDelete={() => onDeleteCreditNote?.(q.code)} onSaveAtlas={onSaveAtlas} />}
     {normalizedTab === 'tech' && <TechnicalPanel q={q} />}
     {normalizedTab === 'state' && <StatePanel q={q} />}
@@ -2573,6 +2573,194 @@ function CreditBalancePanel({ q, note, onSave, onDelete, onSaveAtlas }) {
   </div>;
 }
 
+
+function UnifiedCompanyResearchPanel({ q, ir, dropReport, research, note, onSave, onDelete, onSaveAtlas }) {
+  const [company, setCompany] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState('');
+  const [raw, setRaw] = useState(() => normalizeResearchNote(note).raw || '');
+  const [saved, setSaved] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiState, setAiState] = useState('');
+  const [aiDraft, setAiDraft] = useState('');
+  const [copyState, setCopyState] = useState('');
+  const [manualPrompt, setManualPrompt] = useState('');
+
+  useEffect(() => { setRaw(normalizeResearchNote(note).raw || ''); setSaved(false); setAiState(''); setAiDraft(''); setCopyState(''); setManualPrompt(''); }, [q?.code, note?.updatedAt]);
+
+  async function loadResearch(force = false) {
+    if (!q?.code) return;
+    setLoading(true); setErr('');
+    try {
+      const res = await fetch(`${API}/api/company-research/${encodeURIComponent(q.code)}${force ? '?force=1' : ''}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '会社調査に失敗');
+      setCompany(data);
+    } catch (e) { setErr(e.message); }
+    setLoading(false);
+  }
+
+  useEffect(() => { setCopyState(''); setManualPrompt(''); loadResearch(false); }, [q?.code]);
+
+  const report = company;
+  const summary = report?.summary;
+  const business = report?.business || {};
+  const growth = report?.growth || {};
+  const risks = report?.risks || {};
+  const materials = report?.materials || [];
+  const chatty = report?.chatty;
+  const goodMaterials = (growth.goodMaterials || []).length ? growth.goodMaterials : materials.filter((x) => x.className === 'good');
+  const badMaterials = (risks.badMaterials || []).length ? risks.badMaterials : materials.filter((x) => x.className === 'danger');
+  const atlas = atlasProgress(note, null, q);
+
+  function buildCompanyResearchPrompt() {
+    const recentItems = [...(ir?.items || []).slice(0, 8), ...materials].slice(0, 12);
+    const fmtLine = (x) => `- ${formatMaterialDate(x)} ${x.source || 'IR/News'}：${x.title || ''}${x.url ? `\n  URL: ${x.url}` : ''}`;
+    const savedRaw = String(raw || note?.raw || '').trim();
+    return `以下の日本株について、会社調査と株価反応の切り分けをしてください。
+
+【銘柄】
+${q.code} ${q.name}
+
+【現在の株価・テクニカル】
+現在値：${yen(q.price)}
+前日比：${pct(q.changePct)}
+出来高倍率：${fmt(q.volumeRatio, '倍')}
+BB位置：${q.bbPos == null ? '—' : q.bbPos + 'σ'}
+押し目目安：${yen(q.oshimePrice)} / ${q.oshimeLabel || '—'}
+歪み度：${q.overshootScore ?? '—'} / ${((q.overshootReasons || []).join(' / ') || '—')}
+状態判定：${q.statePrimary || q.totalJudge || q.primaryDecision || '—'}
+理由：${q.stateReason || q.decisionReason || '—'}
+注意：${q.stateCaution || q.decisionCaution || '—'}
+
+【アプリが取得した会社情報】
+取得精度：${report?.confidence || '—'}
+取得元：${report?.source || '—'}
+何をしている会社か：${business.profile || '未取得'}
+主な稼ぎ方：${business.segments || '未取得'}
+伸びる材料候補：${((growth.goodMaterials || []).map(x => x.title || x).slice(0,5)).join(' / ') || '—'}
+悪材料候補：${((risks.badMaterials || []).map(x => x.title || x).slice(0,5)).join(' / ') || '—'}
+
+【直近IR・ニュース候補】
+${recentItems.length ? recentItems.map(fmtLine).join('\n') : '取得なし'}
+
+【保存済み/自分のメモ】
+${savedRaw || '未保存'}
+
+【調査してほしいこと】
+会社の核、直近12〜24か月のレジーム変化、成長材料、資金調達・希薄化、リスク、信用需給、株価反応の過剰/妥当を、未確認を明記して整理してください。`;
+  }
+
+  function buildAtlasPrompt() {
+    const source = String(raw || note?.raw || '').trim();
+    return `以下の日本株について、私が貼り付けた調査ログをもとに、Company Atlas（会社図鑑）用の保存メモを作成してください。
+
+【対象銘柄】
+コード：${q.code}
+銘柄名：${q.name}
+
+【貼り付け調査ログ】
+${source || 'ここに調査ログはまだ貼り付けられていません。'}
+
+【出力形式】
+【会社の核】
+【レジーム変化・大型材料】
+【成長材料】
+【資金調達・希薄化の評価】
+【リスク】
+【株価を見るポイント】
+【押し目判断】
+【自分用の暫定判断】
+
+未確認の情報は必ず「未確認」と明記してください。`;
+  }
+
+  async function copyText(text, okLabel) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setManualPrompt('');
+      setCopyState(okLabel);
+      setTimeout(() => setCopyState(''), 1600);
+    } catch {
+      setManualPrompt(text);
+      setCopyState('failed');
+      setTimeout(() => setCopyState(''), 2500);
+    }
+  }
+
+  async function autoResearchAI() {
+    if (!q?.code) return;
+    setAiLoading(true); setAiState('AI調査中…');
+    try {
+      const res = await fetch(`${API}/api/research`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: `${q.code} ${q.name || ''}`, quote: q }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'AI調査に失敗しました');
+      setAiDraft(String(data.text || ''));
+      setAiState('AI下書きを作成しました。採用/追記/破棄を選んでから保存してください。');
+    } catch (e) { setAiState(`AI調査失敗：${e.message}`); }
+    finally { setAiLoading(false); setTimeout(() => setAiState(''), 6000); }
+  }
+
+  function saveNow() {
+    onSave?.({ raw, source: 'self' });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1600);
+  }
+  function openChatGPT() { window.location.href = 'chatgpt://'; }
+
+  return <div className="unifiedCompanyResearch companyNotePanel simpleNotePanel">
+    <div className="companyHeader noteHeader">
+      <div><div className="smallTitle">記録調査 / 会社調査</div><h3>{q.code} {q.name}</h3></div>
+      <div className="companyActions compactActions">
+        {loading && <span className="loadingPill">調査中…</span>}
+        <button onClick={() => loadResearch(true)} disabled={loading}>{loading ? '再調査中' : '再調査'}</button>
+        {onSaveAtlas && <button className="sub saveAtlasMini" onClick={onSaveAtlas}>JSON保存</button>}
+      </div>
+    </div>
+
+    {err && <div className="miniError">{err}</div>}
+    <section className={`companyStance ${summary?.className || 'wait'}`}>
+      <b>{chatty?.headline || summary?.judgement || '会社情報・直近材料を調査しています。'}</b>
+      <p>取得情報と判定を確認し、そのまま下の図鑑メモへ保存できます。</p>
+    </section>
+    <div className="profileMeta">
+      <span>取得精度: {report?.confidence || '—'}</span>
+      <span>取得元: {report?.source || '—'}</span>
+      <span>IR {summary?.dataCoverage?.irCount ?? '—'}件</span>
+      <span>ニュース {summary?.dataCoverage?.newsCount ?? '—'}件</span>
+      <span>完成度 {atlas.stars}</span>
+    </div>
+
+    <div className="researchBlock primaryResearch expandedProfile">
+      <h4>会社の核</h4><p>{business.profile || '取得中、または取得不可です。公式IRで確認してください。'}</p>
+      <h4>主な稼ぎ方</h4><p className="segmentText">{business.segments || 'セグメント別売上・利益を確認してください。'}</p>
+      <h4>直近材料</h4><ul>{(goodMaterials.length ? goodMaterials : materials).slice(0, 5).map((x, i) => <li key={i}>{x.title || x}</li>)}</ul>
+      <h4>リスク</h4><ul>{badMaterials.slice(0, 5).map((x, i) => <li key={i}>{x.title || x}</li>)}</ul>{!badMaterials.length && <p className="muted">強い悪材料候補は未検出です。</p>}
+    </div>
+
+    <div className="researchToolbar">
+      <button className="aiResearchBtn" onClick={autoResearchAI} disabled={aiLoading}>{aiLoading ? 'AI中…' : '⚡ AI下書き'}</button>
+      <button className="sub" onClick={() => copyText(buildCompanyResearchPrompt(), 'company')}>📋 会社P</button>
+      <button className="sub" onClick={() => copyText(buildAtlasPrompt(), 'atlas')}>📋 図鑑P</button>
+      <button className="sub" onClick={openChatGPT}>📱 ChatGPT</button>
+      {copyState === 'company' && <span className="copyMini">会社Pコピー済み</span>}
+      {copyState === 'atlas' && <span className="copyMini">図鑑Pコピー済み</span>}
+    </div>
+    {copyState === 'failed' && <div className="miniError aiError">自動コピーに失敗しました。下に表示されたプロンプトを手動でコピーしてください。</div>}
+    {manualPrompt && <div className="manualPromptBox"><div className="smallTitle">手動コピー用プロンプト</div><textarea rows={10} value={manualPrompt} readOnly onFocus={(e) => e.currentTarget.select()} /></div>}
+    {aiState && <p className="mobileHint">{aiState}</p>}
+    {aiDraft && <div className="aiDraftReview"><h4>AI下書き（採用前確認）</h4><textarea value={aiDraft} readOnly rows={10} /><div><button onClick={() => { setRaw(aiDraft); setAiDraft(''); }}>採用して上書き</button><button onClick={() => { setRaw(`${raw}${raw.trim() ? '\n\n--- AI下書き ---\n' : ''}${aiDraft}`); setAiDraft(''); }}>自分のメモに追記</button><button className="sub" onClick={() => setAiDraft('')}>破棄</button></div></div>}
+
+    <label className="noteField raw onlyRaw"><span>自分の図鑑メモ / 調査ログ</span><textarea rows={18} value={raw} placeholder="ここに自分で調べた内容、ChatGPT回答、IRメモ、決算メモ、AI下書きを貼り付け。" onChange={(e) => setRaw(e.target.value)} /></label>
+    <div className="noteSimpleFooter">
+      <span>{String(raw || '').trim() ? `${raw.length.toLocaleString('ja-JP')}文字` : '未入力'}</span>
+      <span>完成度 {atlas.stars} / 最終更新 {note?.updatedAt ? new Date(note.updatedAt).toLocaleString('ja-JP') : '未保存'}</span>
+      <button className="aiResearchBtn" onClick={saveNow}>{saved ? '保存済み' : '💾 図鑑に保存'}</button>
+      {note && <button className="sub dangerMini" onClick={() => { if (window.confirm('この銘柄の保存済み調査メモを削除しますか？')) onDelete?.(); }}>削除</button>}
+    </div>
+  </div>;
+}
+
 function CompanyPanel({ q, ir, dropReport, research, companyNote }) {
   const [company, setCompany] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -3115,6 +3303,7 @@ function StatePanel({ q }) {
       <div className={`qualityBox ${stateKindClass(q.stateKind || q.statePrimary)}`}><b>主判定</b><strong>{q.statePrimary || '—'}</strong><span>一覧では「主判定・理由・注意」の3点に畳み、詳細で補助タグを確認します。</span></div>
       <div className={`qualityBox ${trendClass(q.stateScore)}`}><b>観察価値</b><strong>{q.stateScore ?? '—'}点</strong><span>上昇・反発・歪みを横断した観察優先度</span></div>
       <div className={`qualityBox ${trendClass(q.distortionScore)}`}><b>歪み</b><strong>{q.distortionScore ?? '—'}点</strong><span>価格反応に対して中身が壊れていない可能性</span></div>
+      <div className={`qualityBox ${(q.overshootScore || 0) >= 45 ? 'warn' : trendClass(q.overshootScore)}`}><b>売られすぎ</b><strong>{q.overshootScore ?? '—'}点</strong><span>{(q.overshootReasons || [])[0] || '自己正規化の過剰反応シグナル'}</span></div>
       <div className={`qualityBox ${trendDangerClass(q.materialSeverity)}`}><b>材料の重さ</b><strong>{q.materialSeverity ?? '—'}点</strong><span>高いほど小ロット・撤退厳守</span></div>
     </div>
     <DistortionBreakdown q={q} />
@@ -3137,6 +3326,7 @@ function StatePanel({ q }) {
       <Metric label="守備/推力" value={`${q.enduranceScore ?? '—'} / ${q.thrustScore ?? '—'}`} sub="持続型とテーマ推力型を分離" />
       <Metric label="短期RR" value={rrText(q.bottomRR)} sub={`撤退 ${yen(q.bottomStop)}`} className={rrClass(q.bottomRR)} />
       <Metric label="期待値調整" value={`${q.expectationGapScore ?? '—'}点`} sub="高PER成長株の過剰反応確認" />
+      <Metric label="売られすぎ度" value={`${q.overshootScore ?? '—'}点`} sub={(q.overshootReasons || [])[0] || 'Z/BB/ATR/20日DD'} />
     </div>
   </section>;
 }

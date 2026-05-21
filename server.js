@@ -1580,6 +1580,79 @@ function calcVolatilityContext(closes = [], highs = [], lows = [], price = null)
   };
 }
 
+function calcOvershootScore({ z60 = null, bbPos = null, atrPct = null, closes = [], sectorRelativeChange = null, drawdown20 = null, fundamental = null } = {}) {
+  let score = 0;
+  const reasons = [];
+  const nums = (closes || []).map(Number).filter(Number.isFinite);
+
+  const z = Number(z60);
+  if (Number.isFinite(z)) {
+    if (z <= -2.0) { score += 26; reasons.push('60日範囲で2σ以上の下方乖離'); }
+    else if (z <= -1.5) { score += 16; reasons.push('60日範囲で1.5σ以上の下方乖離'); }
+    else if (z <= -1.0) { score += 6; reasons.push('60日平均より明確に下'); }
+  }
+
+  const bb = Number(bbPos);
+  if (Number.isFinite(bb)) {
+    if (bb <= -1.0) { score += 18; reasons.push('BB下限を大きく下抜け'); }
+    else if (bb <= -0.5) { score += 10; reasons.push('BB下限を下抜け'); }
+    else if (bb < 0) { score += 4; reasons.push('BB下限の下側に位置'); }
+  }
+
+  const atr = Number(atrPct);
+  if (nums.length >= 6 && Number.isFinite(atr) && atr > 0) {
+    const now = nums.at(-1);
+    const base5 = nums.at(-6);
+    if (Number.isFinite(now) && Number.isFinite(base5) && base5 > 0) {
+      const r5 = ((now - base5) / base5) * 100;
+      const ratio = r5 / atr;
+      if (ratio <= -3.0) { score += 22; reasons.push('直近5日下落が通常変動の3倍超'); }
+      else if (ratio <= -2.0) { score += 14; reasons.push('直近5日下落が通常変動の2倍'); }
+      else if (ratio <= -1.5) { score += 8; reasons.push('直近5日下落が通常変動より大きい'); }
+    }
+  }
+
+  let dd20 = Number(drawdown20);
+  if (!Number.isFinite(dd20) && nums.length >= 20) {
+    const high20 = Math.max(...nums.slice(-20));
+    const now = nums.at(-1);
+    dd20 = high20 > 0 ? ((now - high20) / high20) * 100 : null;
+  }
+  if (Number.isFinite(dd20)) {
+    if (dd20 <= -20) { score += 14; reasons.push('直近20日で20%超下落'); }
+    else if (dd20 <= -12) { score += 8; reasons.push('直近20日で大きく下落'); }
+  }
+
+  const rel = Number(sectorRelativeChange);
+  if (Number.isFinite(rel) && rel <= -3) {
+    score += 10;
+    reasons.push('セクター比でも明確に売られている');
+  }
+
+  if (nums.length >= 40) {
+    const low20 = Math.min(...nums.slice(-20));
+    const prevLow20 = Math.min(...nums.slice(-40, -20));
+    if (Number.isFinite(low20) && Number.isFinite(prevLow20) && low20 > prevLow20) {
+      score += 12;
+      reasons.push('直近20日が前期間より下値切り上げ');
+    }
+  }
+
+  const pbr = Number(fundamental?.pbr);
+  const per = Number(fundamental?.per);
+  if (Number.isFinite(pbr) && pbr > 0 && pbr < 0.8) {
+    score += 6;
+    reasons.push(`PBR ${pbr.toFixed(2)}倍`);
+  }
+  if (Number.isFinite(per) && per > 0 && per < 15) {
+    score += 4;
+    reasons.push('PER割安水準');
+  }
+
+  return { overshootScore: clamp100(score), overshootReasons: reasons.slice(0, 6) };
+}
+
+
 function buildStateTags(q) {
   const tags = [];
   const actionTags = [];
@@ -1593,6 +1666,7 @@ function buildStateTags(q) {
   const lowerBaseScore = nval(q.lowerBaseScore) || 0;
   const slowRiseScore = nval(q.slowRiseScore) || 0;
   const danger = nval(q.bottomDangerScore) || nval(q.dangerScore) || 0;
+  const overshootScore = nval(q.overshootScore) || 0;
   const dd = nval(q.drawdown20);
   const cp = nval(q.changePct);
   const bb = nval(q.bbPos);
@@ -1697,6 +1771,7 @@ function buildStateTags(q) {
   }
   if (distortionScore >= 55 && materialSeverity < 75) addUnique(tags, '歪み大候補');
   else if (distortionScore >= 38) addUnique(tags, '歪み中候補');
+  if (overshootScore >= 50) addUnique(tags, '過剰反応候補');
 
   // --- 4分類別スコア ---
   const upScore = clamp100(
@@ -1784,6 +1859,16 @@ function buildStateTags(q) {
     stateKind = 'watch'; statePrimary = '観察';
     stateReason = rr != null && rr >= 1.5 ? 'RR確認' : '材料確認';
     stateCaution = '条件不足';
+  }
+
+  if (overshootScore >= 45 && danger >= 55 && /回避|触らない|崩れ|悪材料深刻|安値更新|構造悪化/.test([statePrimary, stateReason, stateCaution, bottomShape, priceMode].join(' '))) {
+    stateKind = 'distortion';
+    statePrimary = '歪み候補(過剰反応)';
+    stateReason = '過剰反応';
+    stateCaution = '材料は実在、株価反応が過剰の可能性。試し玉サイズ厳守';
+    addUnique(tags, '過剰反応候補');
+    addUnique(actionTags, '試し玉サイズ厳守');
+    reasons.push('売られすぎ指標が高く、悪材料込みでも株価反応が過剰の可能性');
   }
 
   // 詳細用の補助タグは残すが、一覧では出しすぎない。
@@ -1876,6 +1961,7 @@ async function fetchYahooQuote(code, options = {}) {
   const bottom = calcBottomMetrics(closes, highs, lows, volumes, price, prev, boll, trend);
   const fundamental = withFundamental ? await fetchFundamentals(c) : null;
   const volatility = calcVolatilityContext(closes, highs, lows, price);
+  const overshoot = calcOvershootScore({ ...volatility, bbPos: boll?.bbPos, atrPct: volatility?.atrPct, closes, sectorRelativeChange: null, drawdown20: bottom?.drawdown20, fundamental });
   const quote = {
     code: c, symbol,
     name: jp,
@@ -1890,6 +1976,7 @@ async function fetchYahooQuote(code, options = {}) {
     ...boll,
     ...trend,
     ...bottom,
+    ...overshoot,
     fetchedAt: new Date().toISOString(),
   };
   let creditSupply = null;
