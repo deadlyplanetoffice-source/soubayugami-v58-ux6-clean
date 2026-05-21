@@ -407,8 +407,8 @@ function compactText(s) { return String(s || '').toLowerCase().replace(/[\s　�
 function yen(n) { return Number.isFinite(n) ? Math.round(n * 10) / 10 : null; }
 function pct(a, b) { return Number.isFinite(a) && Number.isFinite(b) && b !== 0 ? ((a - b) / b) * 100 : null; }
 function normalizeChangePct(raw, fallback = null) {
-  // Yahoo系の変化率は取得経路により「2.34」(%値)と「0.0234」(比率値)が混在しうる。
-  // ここで表示・判定に使う値を必ず「%値」に統一する。
+  // Yahoo系APIの変化率は取得経路で「2.34」(%値)と「0.0234」(比率値)が混在しうる。
+  // 表示・判定用は必ず「%値」に統一する。
   const n = Number(raw);
   if (Number.isFinite(n)) {
     const pctValue = Math.abs(n) <= 1 ? n * 100 : n;
@@ -1853,19 +1853,35 @@ async function fetchYahooQuote(code, options = {}) {
 
   const meta = result.meta || {};
   const q = result.indicators?.quote?.[0] || {};
+
+  // UX20 quote-v7-fix:
+  // chart API(v8)の chartPreviousClose が場中にズレるケースがあり、
+  // price / prevClose 計算だと前日比が一桁大きく出ることがある。
+  // 現在値・前日終値・前日比は quote API(v7)を優先する。
+  let liveRaw = null;
+  try {
+    const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`;
+    const quoteData = await fetchJsonSmart(quoteUrl, 6000, 1, 0);
+    liveRaw = quoteData?.quoteResponse?.result?.[0] || null;
+  } catch {}
+
   const closesRaw = (q.close || []).filter(Number.isFinite);
   const volumesRaw = (q.volume || []).filter(Number.isFinite);
   const highsRaw = (q.high || []).filter(Number.isFinite);
   const lowsRaw = (q.low || []).filter(Number.isFinite);
 
   // UX20 price-fix: 日足の最後の終値ではなく、場中の現在値を優先する。
+  const livePrice = nval(liveRaw?.regularMarketPrice ?? liveRaw?.postMarketPrice ?? liveRaw?.preMarketPrice);
+  const livePrev = nval(liveRaw?.regularMarketPreviousClose);
+  const liveVolume = nval(liveRaw?.regularMarketVolume);
+  const liveChangePct = liveRaw?.regularMarketChangePercent;
+
   const metaPrice = Number(meta.regularMarketPrice);
   const metaPrev = Number(meta.chartPreviousClose);
   const metaVolume = Number(meta.regularMarketVolume);
-  const metaChangePct = Number(meta.regularMarketChangePercent);
-  const price = Number.isFinite(metaPrice) ? metaPrice : closesRaw.at(-1);
-  const prev = Number.isFinite(metaPrev) ? metaPrev : closesRaw.at(-2);
-  const volume = Number.isFinite(metaVolume) ? metaVolume : volumesRaw.at(-1);
+  const price = Number.isFinite(livePrice) ? livePrice : (Number.isFinite(metaPrice) ? metaPrice : closesRaw.at(-1));
+  const prev = Number.isFinite(livePrev) ? livePrev : (Number.isFinite(metaPrev) ? metaPrev : closesRaw.at(-2));
+  const volume = Number.isFinite(liveVolume) ? liveVolume : (Number.isFinite(metaVolume) ? metaVolume : volumesRaw.at(-1));
 
   // テクニカル計算も最後の足だけ現在値へ寄せる。
   const closes = closesRaw.length ? [...closesRaw.slice(0, -1), price] : [price].filter(Number.isFinite);
@@ -1875,7 +1891,7 @@ async function fetchYahooQuote(code, options = {}) {
 
   const vol20 = sma(volumes, 20);
   const calcChangePct = pct(price, prev);
-  const changePct = normalizeChangePct(metaChangePct, calcChangePct);
+  const changePct = normalizeChangePct(liveChangePct, calcChangePct);
   const jp = withFundamental ? await getJapaneseName(c, meta.shortName || meta.longName || symbol) : cleanJapaneseName(meta.shortName || meta.longName || symbol, c);
   const boll = calcBollinger(closes, highs, lows, price);
   const trend = calcTrendMetrics(closes, highs, lows, volumes, price, prev, boll);
