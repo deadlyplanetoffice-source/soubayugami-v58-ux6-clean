@@ -2752,16 +2752,16 @@ button {
 }
 
 
-/* UX23.7 bottom close button for long accordion sections */
+/* UX23.8 bottom close button for long accordion sections: no overlap with save/delete buttons */
 .accordionBottomActions {
-  position: sticky;
-  bottom: 86px;
-  z-index: 5;
+  position: static;
+  z-index: auto;
   display: flex;
   justify-content: center;
-  margin: 18px 0 4px;
-  padding: 10px 0 2px;
-  background: linear-gradient(180deg, rgba(8,15,24,0), rgba(8,15,24,.92) 35%, rgba(8,15,24,.98));
+  margin: 22px 0 8px;
+  padding: 12px 0 0;
+  border-top: 1px dashed rgba(148,163,184,.18);
+  background: transparent;
 }
 .closeAccordionBottom {
   width: min(100%, 360px);
