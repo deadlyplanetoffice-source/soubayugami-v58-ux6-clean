@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = '相場歪観測機 v58 UX21.1';
+const APP_VERSION = '相場歪観測機 v58 UX21.2';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -131,6 +131,7 @@ function mobileSortOptions(mode) {
     { label: 'スコア', key: mobileScoreSortKey(mode), dir: 'desc' },
     { label: 'RR', key: mobileRRSortKey(mode), dir: 'desc' },
     { label: '危険', key: mode === 'trend' ? 'trendDanger' : mode === 'bottom' ? 'bottomDanger' : 'danger', dir: 'desc' },
+    { label: '歪み度', key: 'overshootScore', dir: 'desc' },
   ];
 }
 
@@ -1036,7 +1037,10 @@ function App() {
             <label>出来高<input type="number" inputMode="numeric" pattern="[0-9]*" value={scannerMinVolume} onChange={(e) => setScannerMinVolume(Number(e.target.value) || 0)} /></label>
             <button className="fullAction" onClick={() => { refresh(scannerSource); setMobileFiltersOpen(false); }}>この条件で再スキャン</button>
           </div>}
-          <div className="mobileFilterChips">{mobileFilterButtons.map(([k,label]) => <button key={k} className={filter===k?'active':''} onClick={() => setFilter(k)}>{label}</button>)}</div>
+          <div className="mobileFilterChips">
+            {mobileFilterButtons.map(([k,label]) => <button key={k} className={filter===k?'active':''} onClick={() => setFilter(k)}>{label}</button>)}
+            {scannerMode === 'state' && <button className="overshootPreset" onClick={() => { setFilter('overshoot'); setSortSpec({ key: 'overshootScore', dir: 'desc' }); setMobileFiltersOpen(false); }}>⚡ 歪み探索</button>}
+          </div>
           {error && <div className="mobileError">{error}</div>}
           {dataTransferMsg && <div className="mobileToast">{dataTransferMsg}</div>}
           <div className="mobileCards">{rows.map((q) => <MobileQuoteCard key={q.code} q={q} mode={scannerMode} selected={selected} watched={watch.some(w => String(w.code) === String(q.code))} companyNote={companyNotes[String(q.code)]} creditNote={creditNotes[String(q.code)]} miniChartMode={miniChartMode} miniChartCache={miniChartCache} miniChartLoading={miniChartLoading} onToggleMiniChart={toggleMiniChart} onOpen={(tab='summary') => openDetail(q, tab)} onWatch={() => toggleWatch(q)} />)}</div>

@@ -2590,3 +2590,16 @@ button {
   .phaseRow button { flex:1 1 180px; }
   .companyQuickSummary p { grid-template-columns:1fr; gap:2px; }
 }
+
+
+/* UX21.2 overshoot discovery */
+.mobileFilterChips .overshootPreset {
+  border-color: rgba(74,222,128,.55);
+  background: rgba(20,83,45,.2);
+  color: #dcfce7;
+  font-weight: 800;
+}
+.mobileSortStrip button.active,
+.mobileFilterChips button.active {
+  box-shadow: 0 0 0 1px rgba(115,199,255,.22) inset;
+}
