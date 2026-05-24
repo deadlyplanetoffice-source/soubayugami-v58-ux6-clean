@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = '相場歪観測機 v58 UX23.4';
+const APP_VERSION = '相場歪観測機 v58 UX23.6';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -1496,7 +1496,7 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
       { id: 'trend', title: '順張り', hint: '上昇継続・安全度・撤退', content: () => <TrendPanel q={q} /> },
     ]} />}
     {normalizedTab === 'confirm' && <MobileAccordionGroup storageKey={`confirm-${q.code}-${confirmInitialOpen}`} initialOpenId={confirmInitialOpen} intro="図鑑への書き込み・信用需給記録はここです。AIは下書き係、自分で確認して保存します。" sections={[
-      { id: 'note', title: '会社調査', hint: 'AI取得・プロンプト・図鑑メモ保存を1画面で完結', content: () => <SafePanel><UnifiedCompanyResearchPanel q={q} ir={ir} dropReport={dropReport} research={research} note={companyNote} onSave={(patch) => onUpdateCompanyNote?.(q.code, patch)} onDelete={() => onDeleteCompanyNote?.(q.code)} onSaveAtlas={onSaveAtlas} /></SafePanel> },
+      { id: 'note', title: '会社調査', hint: '調査プロンプト・図鑑メモ保存を1画面で完結', content: () => <SafePanel><UnifiedCompanyResearchPanel q={q} ir={ir} dropReport={dropReport} research={research} note={companyNote} onSave={(patch) => onUpdateCompanyNote?.(q.code, patch)} onDelete={() => onDeleteCompanyNote?.(q.code)} onSaveAtlas={onSaveAtlas} /></SafePanel> },
       { id: 'credit', title: '信用需給を記録する', hint: '信用データ貼り付け・抽出・保存', content: () => <CreditBalancePanel q={q} note={creditNote} onSave={(patch) => onUpdateCreditNote?.(q.code, patch)} onDelete={() => onDeleteCreditNote?.(q.code)} onSaveAtlas={onSaveAtlas} /> },
       { id: 'tech', title: '価格/指標', hint: '価格帯・出来高・指標確認', content: () => <TechnicalPanel q={q} /> },
       { id: 'ir', title: 'IR/ニュース', hint: '直近材料と更新', content: () => <IrPanel ir={ir} loading={irLoading} error={irError} onReload={onReloadIr} q={q} /> },
@@ -1541,6 +1541,49 @@ function extractSections(raw = '') {
   }
   return sections;
 }
+
+function inferSectionsFromLegacyMemo(raw = '') {
+  const text = String(raw || '').trim();
+  if (!text) return '';
+  const clean = text.replace(/\r/g, '').replace(/\n{3,}/g, '\n\n');
+  const lines = clean.split(/\n+/).map((x) => x.trim()).filter(Boolean);
+
+  const pick = (patterns, limit = 4) => {
+    const hits = [];
+    for (const line of lines) {
+      if (patterns.some((re) => re.test(line)) && !hits.includes(line)) hits.push(line);
+      if (hits.length >= limit) break;
+    }
+    return hits;
+  };
+
+  const companyCore = pick([/事業|会社|主力|展開|運営|開発|製造|販売|サービス|セグメント|収益|稼ぐ|売上|利益/], 4);
+  const growth = pick([/成長|拡大|新規|受注|提携|大型|需要|投資|中計|増収|増益|上方|改善|材料|期待/], 5);
+  const funding = pick([/増資|希薄|ワラント|新株|CB|社債|資金調達|借入|公募|売出|第三者割当/], 4);
+  const risks = pick([/リスク|悪材料|下方|減益|赤字|減配|減損|未達|競争|不調|鈍化|費用|金利|為替|在庫|訴訟|危険/], 5);
+  const stock = pick([/株価|押し目|下落|急落|反発|出来高|信用|需給|PER|PBR|割安|割高|歪み|BB|ボリンジャー|支持|抵抗/], 5);
+  const regime = pick([/レジーム|転換|構造|方針|中期|再編|買収|撤退|新領域|大型|決算|業績|見通し|説明会/], 4);
+
+  const fallback = clean.length > 700 ? `${clean.slice(0, 700)}…` : clean;
+
+  const section = (title, items, empty = '未確認') => {
+    const body = items.length ? items.map((x) => `・${x}`).join('\n') : `・${empty}`;
+    return `【${title}】\n${body}`;
+  };
+
+  return [
+    section('会社の核', companyCore, '旧メモからは事業の核を機械抽出できませんでした。公式IRで確認。'),
+    section('レジーム変化・大型材料', regime, '旧メモからは大型材料を機械抽出できませんでした。'),
+    section('成長材料', growth, '旧メモからは成長材料を機械抽出できませんでした。'),
+    section('資金調達・希薄化の評価', funding, '旧メモからは資金調達・希薄化材料は未確認。'),
+    section('リスク', risks, '旧メモからは明確なリスクを機械抽出できませんでした。'),
+    section('株価を見るポイント', stock, '旧メモからは株価判断ポイントを機械抽出できませんでした。'),
+    `【押し目判断】\n・未確認。価格反応と会社材料を分けて確認。`,
+    `【自分用の暫定判断】\n・旧メモを自動変換した暫定版。内容を確認して必要なら修正。`,
+    `【元メモ】\n${fallback}`
+  ].join('\n\n');
+}
+
 function sectionSnippet(sections = {}, keys = [], fallback = '未記録') {
   const key = keys.find((k) => sections[k]);
   const text = key ? sections[key] : '';
@@ -2947,10 +2990,12 @@ ${source || 'ここに調査ログはまだ貼り付けられていません。'
       setEditMode(false);
       setExtractState('見出しを検出し、有益情報カードに整理しました。');
     } else {
-      setEditMode(true);
-      setExtractState('【会社の核】などの見出しが未検出です。ChatGPTに整形依頼を使うと整理できます。');
+      const converted = inferSectionsFromLegacyMemo(raw);
+      setRaw(converted);
+      setEditMode(false);
+      setExtractState('古い自由文メモを暫定図鑑形式に変換しました。元メモも末尾に残しています。確認して保存してください。');
     }
-    setTimeout(() => setExtractState(''), 3500);
+    setTimeout(() => setExtractState(''), 5000);
   }
   function openChatGPT() { window.location.href = 'chatgpt://'; }
 
@@ -2994,16 +3039,19 @@ ${source || 'ここに調査ログはまだ貼り付けられていません。'
     </div>
 
     <div className="researchToolbar phaseToolbar">
+      <div className="phaseHelp">
+        <b>使い分け</b>
+        <span>会社を調べる＝調査開始用プロンプト / 図鑑に整形＝ChatGPTで保存形式へ整える / 有益情報を抽出＝古いメモも暫定カード化</span>
+      </div>
       <div className="phaseRow">
         <span className="phaseLabel">調べる</span>
-        <button className={`aiResearchBtn ${!hasRaw ? 'activeTool' : ''}`} onClick={autoResearchAI} disabled={aiLoading}>{aiLoading ? 'AI中…' : '⚡ AI下書き'}</button>
-        <button className={`sub ${!hasRaw ? 'activeTool' : ''}`} onClick={() => copyText(buildCompanyResearchPrompt(), 'company')}>📋 会社を調べる</button>
+        <button className={`sub researchMain ${!hasRaw ? 'activeTool' : ''}`} onClick={() => copyText(buildCompanyResearchPrompt(), 'company')}>📋 会社を調べる</button>
         <button className="sub" onClick={openChatGPT}>📱 ChatGPT</button>
       </div>
       {hasRaw && <div className="phaseRow formatPhase">
         <span className="phaseLabel">整える</span>
         <button className="sub activeTool" onClick={extractKeyInfoFromRaw}>✨ 有益情報を抽出</button>
-        <button className="sub" onClick={() => copyText(buildAtlasPrompt(), 'atlas')}>📋 図鑑に整形</button>
+        <button className="sub researchMain" onClick={() => copyText(buildAtlasPrompt(), 'atlas')}>📋 図鑑に整形</button>
       </div>}
       {copyState === 'company' && <span className="copyMini">会社調査プロンプトをコピー済み</span>}
       {copyState === 'atlas' && <span className="copyMini">図鑑整形プロンプトをコピー済み</span>}

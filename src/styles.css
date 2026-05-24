@@ -2724,3 +2724,29 @@ button {
 .panelErrorFallback button {
   margin-top: 8px;
 }
+
+
+/* UX23.5 research button cleanup */
+.phaseHelp {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid rgba(115,199,255,.18);
+  border-radius: 12px;
+  background: rgba(15,23,42,.32);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.phaseHelp b {
+  color: #dff3ff;
+}
+.researchToolbar .researchMain {
+  font-weight: 800;
+}
+
+
+/* UX23.6 legacy memo extraction */
+.phaseHelp span {
+  line-height: 1.55;
+}
