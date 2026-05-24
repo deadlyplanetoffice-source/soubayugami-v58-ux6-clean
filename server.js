@@ -3784,6 +3784,33 @@ async function fetchCompanyInvestigation(code) {
   };
 }
 
+
+function dedupeMaterialsServer(materials = []) {
+  const seen = [];
+  const out = [];
+  for (const m of materials || []) {
+    const key = String(m?.title || '').slice(0, 30).replace(/[、。\s　,.\-:：・]/g, '').toLowerCase();
+    if (!key) { out.push(m); continue; }
+    const near = seen.find((s) => s.includes(key) || key.includes(s));
+    if (near) continue;
+    seen.push(key);
+    out.push(m);
+  }
+  return out;
+}
+function rankMaterialsByUrgencyServer(materials = [], quote = null) {
+  const urgentKw = /下落|急落|ストップ|下方修正|上方修正|決算|発表|サプライズ|失望|見通し|業績/;
+  const move = Math.abs(Number(quote?.changePct) || 0) >= 2;
+  const arr = dedupeMaterialsServer(materials);
+  if (!move) return arr;
+  return [...arr].sort((a, b) => {
+    const ah = urgentKw.test(a?.title || '') ? 1 : 0;
+    const bh = urgentKw.test(b?.title || '') ? 1 : 0;
+    if (ah !== bh) return bh - ah;
+    return 0;
+  });
+}
+
 app.get('/api/resolve', async (req, res) => {
   try { res.json(await resolveInput(req.query.q)); }
   catch (e) { res.status(404).json({ error: e.message }); }
@@ -3795,7 +3822,13 @@ app.get('/api/drop-reason', async (req, res) => {
 });
 
 app.get('/api/ir/:code', async (req, res) => {
-  try { res.json(await fetchIrMaterials(req.params.code)); }
+  try {
+    const data = await fetchIrMaterials(req.params.code);
+    let quote = null;
+    try { quote = await fetchYahooQuote(req.params.code, { withFundamental: false }); } catch {}
+    const items = rankMaterialsByUrgencyServer(data?.items || [], quote);
+    res.json({ ...data, items });
+  }
   catch (e) { res.status(502).json({ error: e.message }); }
 });
 

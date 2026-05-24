@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = '相場歪観測機 v58 UX21';
+const APP_VERSION = '相場歪観測機 v58 UX21.1';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -1445,10 +1445,10 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
       {normalizedTab !== 'summary' && <button className="tabCloseInline" onClick={() => setTab('summary')}>結論へ戻る</button>}
     </div>
 
-    {normalizedTab === 'summary' && <SummaryPanel q={q} research={research} ir={ir} companyNote={companyNote} creditNote={creditNote} onWrite={() => setTab('note')} onCredit={() => setTab('credit')} />}
+    {normalizedTab === 'summary' && <SummaryPanel q={q} research={research} ir={ir} companyNote={companyNote} creditNote={creditNote} onWrite={() => setTab('note')} onCredit={() => setTab('credit')} onDeep={() => setTab(mobile ? 'deep' : 'state')} />}
     {normalizedTab === 'chart' && <ChartPanel q={q} />}
     {normalizedTab === 'deep' && <MobileAccordionGroup storageKey={`deep-${q.code}-${deepInitialOpen}`} initialOpenId={deepInitialOpen} intro="項目を選ぶまで中身は開きません。必要な材料だけ開いて確認します。" sections={[
-      { id: 'state', title: '状態/歪み', hint: '状態タグ・歪みの理由', content: () => <StatePanel q={q} /> },
+      { id: 'state', title: '状態/歪み', hint: '状態タグ・歪みの理由', content: () => <StatePanel q={q} companyNote={companyNote} ir={ir} /> },
       { id: 'bottom', title: '試し玉', hint: '下値・反発・危険度', content: () => <BottomPanel q={q} /> },
       { id: 'trend', title: '順張り', hint: '上昇継続・安全度・撤退', content: () => <TrendPanel q={q} /> },
     ]} />}
@@ -1462,7 +1462,7 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
         {normalizedTab === 'note' && <UnifiedCompanyResearchPanel q={q} ir={ir} dropReport={dropReport} research={research} note={companyNote} onSave={(patch) => onUpdateCompanyNote?.(q.code, patch)} onDelete={() => onDeleteCompanyNote?.(q.code)} onSaveAtlas={onSaveAtlas} />}
     {normalizedTab === 'credit' && <CreditBalancePanel q={q} note={creditNote} onSave={(patch) => onUpdateCreditNote?.(q.code, patch)} onDelete={() => onDeleteCreditNote?.(q.code)} onSaveAtlas={onSaveAtlas} />}
     {normalizedTab === 'tech' && <TechnicalPanel q={q} />}
-    {normalizedTab === 'state' && <StatePanel q={q} />}
+    {normalizedTab === 'state' && <StatePanel q={q} companyNote={companyNote} ir={ir} />}
     {normalizedTab === 'bottom' && <BottomPanel q={q} />}
     {normalizedTab === 'trend' && <TrendPanel q={q} />}
     {normalizedTab === 'ir' && <IrPanel ir={ir} loading={irLoading} error={irError} onReload={onReloadIr} q={q} />}
@@ -1472,13 +1472,123 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
   </div>;
 }
 
-function SummaryPanel({ q, research, ir, companyNote, creditNote, onWrite, onCredit }) {
+
+function synthesizeVerdict(q = {}) {
+  const stateJudge = q.statePrimary || q.stateKind || '—';
+  const bottomJudge = q.bottomJudge || q.lowerBaseLabel || '—';
+  const trendJudge = q.trendJudge || q.trendType || '—';
+  const oshimeJudge = q.oshimeLabel || q.totalJudge || q.primaryDecision || '—';
+  const overshootScore = Number(q.overshootScore || 0);
+  const danger = Number(q.bottomDangerScore ?? q.trendDangerScore ?? q.dangerScore ?? 0);
+  if (danger >= 80 && overshootScore >= 50) return { headline: '深押し・過剰反応兆候、反発確認後に小ロット余地', action: 'wait-reversal', confidence: '中', stateJudge, bottomJudge, trendJudge, oshimeJudge };
+  if (danger >= 80) return { headline: '深押し中・崩れ警戒、見送り推奨', action: 'avoid', confidence: '高', stateJudge, bottomJudge, trendJudge, oshimeJudge };
+  if (/試し玉候補|反発監視/.test(bottomJudge)) return { headline: `${bottomJudge}・サイズ厳守で試し玉余地`, action: 'trial', confidence: '中', stateJudge, bottomJudge, trendJudge, oshimeJudge };
+  if (trendJudge === '強い順張り') return { headline: '上昇継続・押し目買い妙味', action: 'momentum', confidence: '高', stateJudge, bottomJudge, trendJudge, oshimeJudge };
+  if (overshootScore >= 45) return { headline: '過剰反応の可能性、底打ち確認待ち', action: 'watch', confidence: '低', stateJudge, bottomJudge, trendJudge, oshimeJudge };
+  return { headline: '見送り or 様子見', action: 'wait', confidence: '低', stateJudge, bottomJudge, trendJudge, oshimeJudge };
+}
+function extractSections(raw = '') {
+  const sections = {};
+  const headerRe = /【([^】]+)】([\s\S]*?)(?=【|$)/g;
+  let m;
+  while ((m = headerRe.exec(String(raw || ''))) !== null) {
+    const key = m[1].trim();
+    const body = m[2].trim();
+    if (key && body) sections[key] = body;
+  }
+  return sections;
+}
+function sectionSnippet(sections = {}, keys = [], fallback = '未記録') {
+  const key = keys.find((k) => sections[k]);
+  const text = key ? sections[key] : '';
+  if (!text) return fallback;
+  const one = text.split(/\n+/).map((x) => x.trim()).filter(Boolean).slice(0, 2).join(' ');
+  return one.length > 140 ? `${one.slice(0, 140)}…` : one;
+}
+function companyMemoConfidence(raw = '', updatedAt = '') {
+  const text = String(raw || '').trim();
+  if (!text) return { label: '未調査', className: 'low', reason: '会社情報が未記録' };
+  const sections = extractSections(text);
+  const count = Object.keys(sections).length;
+  const ageDays = updatedAt ? Math.floor((Date.now() - new Date(updatedAt).getTime()) / 86400000) : null;
+  if (count >= 4 && text.length >= 1000 && (ageDays == null || ageDays <= 30)) return { label: '高', className: 'high', reason: '章数・分量・更新時期が十分' };
+  if (count >= 4 && ageDays != null && ageDays >= 90) return { label: '中（要更新）', className: 'mid', reason: '内容はあるが更新が古い' };
+  if (count >= 3 && text.length >= 200) return { label: '中', className: 'mid', reason: '最低限の会社メモあり' };
+  return { label: '低（情報少）', className: 'low', reason: '章数または分量が不足' };
+}
+function calcJudgementConfidence({ q = {}, companyNote = null, ir = null } = {}) {
+  let level = 0;
+  const reasons = [];
+  if (q.price != null && q.changePct != null) { level++; reasons.push('価格・変化率取得'); }
+  if (q.volume != null && q.volumeRatio != null) { level++; reasons.push('出来高取得'); }
+  if (q.fundamental?.per != null || q.fundamental?.pbr != null || q.per != null || q.pbr != null) { level++; reasons.push('PER/PBR取得'); }
+  const irItems = Array.isArray(ir) ? ir : (ir?.items || []);
+  if (irItems.length > 0) { level++; reasons.push('IR取得'); }
+  if (companyNote?.raw && companyNote.raw.length >= 500) { level++; reasons.push('会社メモあり'); }
+  const label = level >= 4 ? '高' : level >= 2 ? '中' : '低';
+  const missing = [];
+  if (!q.fundamental?.per && !q.fundamental?.pbr && q.per == null && q.pbr == null) missing.push('PER/PBR');
+  if (!irItems.length) missing.push('IR');
+  if (!companyNote?.raw) missing.push('会社メモ');
+  return { level, label, reasons, missing, className: level >= 4 ? 'high' : level >= 2 ? 'mid' : 'low' };
+}
+function compactMaterialKey(title = '') {
+  return String(title || '').slice(0, 30).replace(/[、。\s　・:：,\.\-—_/]/g, '').toLowerCase();
+}
+function dedupeMaterials(items = []) {
+  const seen = [];
+  const out = [];
+  (items || []).forEach((item) => {
+    const key = compactMaterialKey(item?.title || '');
+    if (!key) { out.push(item); return; }
+    const near = seen.find((s) => s.includes(key) || key.includes(s));
+    if (near) return;
+    seen.push(key);
+    out.push(item);
+  });
+  return out;
+}
+function rankMaterialsForToday(items = [], q = {}) {
+  const urgentKw = /下落|急落|ストップ|下方修正|上方修正|決算|発表|サプライズ|失望|見通し|業績/;
+  const moveSignificant = Math.abs(Number(q?.changePct) || 0) >= 2;
+  const arr = dedupeMaterials(items);
+  if (!moveSignificant) return arr;
+  return [...arr].sort((a, b) => {
+    const ah = urgentKw.test(a?.title || '') ? 1 : 0;
+    const bh = urgentKw.test(b?.title || '') ? 1 : 0;
+    if (ah !== bh) return bh - ah;
+    return 0;
+  });
+}
+function AtlasMemoCards({ raw = '', onEdit }) {
+  const sections = extractSections(raw);
+  const keys = Object.keys(sections);
+  if (!keys.length) return <div className="savedMemoPreview"><p>{String(raw || '').slice(0, 900)}</p><button className="sub" onClick={onEdit}>編集する</button></div>;
+  const priority = ['会社の核','主な稼ぎ方','レジーム変化・大型材料','成長材料','直近材料','資金調達・希薄化の評価','リスク','株価を見るポイント','押し目判断','歪み判定','自分用の暫定判断'];
+  const ordered = [...priority.filter((k) => sections[k]), ...keys.filter((k) => !priority.includes(k))];
+  return <div className="atlasMemoCards">
+    {ordered.map((k) => <section className="atlasMemoCard" key={k}><h4>{k}</h4><p>{sections[k]}</p></section>)}
+    <button className="sub" onClick={onEdit}>編集する</button>
+  </div>;
+}
+function LinkTier({ title, children, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return <section className={`linkTier ${open ? 'open' : ''}`}>
+    <button className="linkTierHead" onClick={() => setOpen((v) => !v)}><b>{title}</b><span>{open ? '閉じる' : '開く'}</span></button>
+    {open && <div className="linkTierBody">{children}</div>}
+  </section>;
+}
+
+function SummaryPanel({ q, research, ir, companyNote, creditNote, onWrite, onCredit, onDeep }) {
   const atlas = atlasProgress(companyNote, creditNote, q);
   const core = extractAtlasCore(companyNote, q?.sector ? `${q.sector}領域。図鑑メモを保存すると会社の核がここに出ます。` : '図鑑メモを保存すると会社の核がここに出ます。');
   const quality = buildQuality(q) || {};
   const action = research?.stance || quality.finalJudge || q.primaryDecision || '様子見・要確認';
   const actionClass = research?.stanceClass || quality.finalClass || '';
   const distortion = (q.reasons || []).slice(0, 2).join(' / ') || q.stateReason || q.oshimeLabel || '歪み理由は未検出。価格・出来高・材料を確認。';
+  const verdict = synthesizeVerdict(q);
+  const hasCompanyRaw = !!String(companyNote?.raw || '').trim();
+  const ctaLabel = !hasCompanyRaw ? '🔍 この会社を調べる' : atlas.level <= 2 ? '📝 図鑑メモを追記する' : '📖 図鑑メモを開く';
   return <div className="summaryPanel atlasCardPanel">
     <section className="atlasHeroCard" style={{ borderTopColor: sectorColor(q.sector || q.market) }}>
       <div className="atlasHeroTop">
@@ -1497,6 +1607,12 @@ function SummaryPanel({ q, research, ir, companyNote, creditNote, onWrite, onCre
         <em className={clsBy(q.changePct)}>{pct(q.changePct)}</em>
         <span>出来高 {fmt(q.volume)} / {fmt(q.volumeRatio, '倍')}</span>
       </div>
+      <div className={`verdictBox ${verdict.action}`}>
+        <strong>{verdict.headline}</strong>
+        <p>根拠: 押し目={verdict.oshimeJudge} / 歪み度 {q.overshootScore ?? '—'} / 試し玉={verdict.bottomJudge} / 信頼度 {verdict.confidence}</p>
+        <button className="sub" onClick={onDeep}>もっと深く判定を読む →</button>
+      </div>
+      <button className="primary atlasCta" onClick={onWrite}>{ctaLabel}</button>
       <div className="atlasSpark"><RowSpark q={q} /></div>
       <div className="atlasDecision">
         <span className={`stance ${actionClass}`}>{action}</span>
@@ -1951,6 +2067,8 @@ function CompanyNotePanel({ q, note, onSave, onDelete, onSaveAtlas }) {
   const [aiDraft, setAiDraft] = useState('');
   const [copyState, setCopyState] = useState('');
   const [manualPrompt, setManualPrompt] = useState('');
+  const [editMode, setEditMode] = useState(false);
+  const [extractState, setExtractState] = useState('');
   useEffect(() => { setRaw(normalizeResearchNote(note).raw || ''); setSaved(false); setAiState(''); setAiDraft(''); setCopyState(''); setManualPrompt(''); }, [q?.code, note?.updatedAt]);
 
   async function pasteRaw() {
@@ -2574,6 +2692,33 @@ function CreditBalancePanel({ q, note, onSave, onDelete, onSaveAtlas }) {
 }
 
 
+
+function ReferenceLinksPanel({ q, materials = [] }) {
+  const code = q?.code || '';
+  const name = q?.name || '';
+  const enc = (s) => encodeURIComponent(s);
+  const news = dedupeMaterials(materials).slice(0, 3);
+  return <div className="referenceLinksPanel">
+    <h4>参考リンク</h4>
+    <LinkTier title="まず見る" defaultOpen>
+      <a target="_blank" rel="noreferrer" href={`https://www.google.com/search?q=${enc(`${code} ${name} 公式 IR 決算説明資料 中期経営計画`)}`}>公式IR / 決算説明資料</a>
+      <a target="_blank" rel="noreferrer" href="https://www.release.tdnet.info/inbs/I_main_00.html">TDnet 適時開示</a>
+    </LinkTier>
+    <LinkTier title="材料確認" defaultOpen>
+      {news.length ? news.map((m, i) => m.url ? <a key={i} target="_blank" rel="noreferrer" href={m.url}>{m.title}</a> : <span key={i}>{m.title}</span>) : <span>直近ニュース候補は未取得</span>}
+      <a target="_blank" rel="noreferrer" href={`https://www.google.com/search?q=${enc(`${code} ${name} 提携 受注 増資 決算 材料`)}`}>提携/受注/増資/決算検索</a>
+    </LinkTier>
+    <LinkTier title="株価補助">
+      <a target="_blank" rel="noreferrer" href={`https://finance.yahoo.co.jp/quote/${code}.T`}>Yahoo Finance Japan</a>
+      <a target="_blank" rel="noreferrer" href={`https://kabutan.jp/stock/?code=${code}`}>Kabutan</a>
+      <a target="_blank" rel="noreferrer" href={`https://minkabu.jp/stock/${code}`}>みんかぶ</a>
+    </LinkTier>
+    <LinkTier title="最後に">
+      <a target="_blank" rel="noreferrer" href={`https://www.google.com/search?q=${enc(`${code} ${name}`)}`}>Google検索</a>
+    </LinkTier>
+  </div>;
+}
+
 function UnifiedCompanyResearchPanel({ q, ir, dropReport, research, note, onSave, onDelete, onSaveAtlas }) {
   const [company, setCompany] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -2612,6 +2757,9 @@ function UnifiedCompanyResearchPanel({ q, ir, dropReport, research, note, onSave
   const goodMaterials = (growth.goodMaterials || []).length ? growth.goodMaterials : materials.filter((x) => x.className === 'good');
   const badMaterials = (risks.badMaterials || []).length ? risks.badMaterials : materials.filter((x) => x.className === 'danger');
   const atlas = atlasProgress(note, null, q);
+  const hasRaw = !!String(raw || '').trim();
+  const memoSections = extractSections(raw);
+  const memoConfidence = companyMemoConfidence(raw, note?.updatedAt);
 
   function buildCompanyResearchPrompt() {
     const recentItems = [...(ir?.items || []).slice(0, 8), ...materials].slice(0, 12);
@@ -2704,7 +2852,20 @@ ${source || 'ここに調査ログはまだ貼り付けられていません。'
   function saveNow() {
     onSave?.({ raw, source: 'self' });
     setSaved(true);
+    setEditMode(false);
     setTimeout(() => setSaved(false), 1600);
+  }
+  function extractKeyInfoFromRaw() {
+    if (!hasRaw) return;
+    const sections = extractSections(raw);
+    if (Object.keys(sections).length) {
+      setEditMode(false);
+      setExtractState('見出しを検出し、有益情報カードに整理しました。');
+    } else {
+      setEditMode(true);
+      setExtractState('【会社の核】などの見出しが未検出です。ChatGPTに整形依頼を使うと整理できます。');
+    }
+    setTimeout(() => setExtractState(''), 3500);
   }
   function openChatGPT() { window.location.href = 'chatgpt://'; }
 
@@ -2719,6 +2880,15 @@ ${source || 'ここに調査ログはまだ貼り付けられていません。'
     </div>
 
     {err && <div className="miniError">{err}</div>}
+    <section className={`companyQuickSummary ${memoConfidence.className}`}>
+      <div className="smallTitle">まず見る結論</div>
+      {hasRaw ? <>
+        <p><b>稼ぎ方</b><span>{sectionSnippet(memoSections, ['主な稼ぎ方','会社の核'], business.profile || '未記録')}</span></p>
+        <p><b>売買理由</b><span>{sectionSnippet(memoSections, ['直近材料','歪み判定','株価を見るポイント'], chatty?.headline || summary?.judgement || '未確認')}</span></p>
+        <p><b>材料</b><span>{sectionSnippet(memoSections, ['成長材料','レジーム変化・大型材料'], '成長材料は未整理')}</span></p>
+        <p><b>信頼度</b><span>{memoConfidence.label}：{memoConfidence.reason}</span></p>
+      </> : <div className="emptyCompanyMemo"><b>まだ会社情報が記録されていません</b><span>まず会社を調べるか、AI下書きを取得してください。</span></div>}
+    </section>
     <section className={`companyStance ${summary?.className || 'wait'}`}>
       <b>{chatty?.headline || summary?.judgement || '会社情報・直近材料を調査しています。'}</b>
       <p>取得情報と判定を確認し、そのまま下の図鑑メモへ保存できます。</p>
@@ -2738,24 +2908,36 @@ ${source || 'ここに調査ログはまだ貼り付けられていません。'
       <h4>リスク</h4><ul>{badMaterials.slice(0, 5).map((x, i) => <li key={i}>{x.title || x}</li>)}</ul>{!badMaterials.length && <p className="muted">強い悪材料候補は未検出です。</p>}
     </div>
 
-    <div className="researchToolbar">
-      <button className="aiResearchBtn" onClick={autoResearchAI} disabled={aiLoading}>{aiLoading ? 'AI中…' : '⚡ AI下書き'}</button>
-      <button className="sub" onClick={() => copyText(buildCompanyResearchPrompt(), 'company')}>📋 会社P</button>
-      <button className="sub" onClick={() => copyText(buildAtlasPrompt(), 'atlas')}>📋 図鑑P</button>
-      <button className="sub" onClick={openChatGPT}>📱 ChatGPT</button>
-      {copyState === 'company' && <span className="copyMini">会社Pコピー済み</span>}
-      {copyState === 'atlas' && <span className="copyMini">図鑑Pコピー済み</span>}
+    <div className="researchToolbar phaseToolbar">
+      <div className="phaseRow">
+        <span className="phaseLabel">調べる</span>
+        <button className={`aiResearchBtn ${!hasRaw ? 'activeTool' : ''}`} onClick={autoResearchAI} disabled={aiLoading}>{aiLoading ? 'AI中…' : '⚡ AI下書き'}</button>
+        <button className={`sub ${!hasRaw ? 'activeTool' : ''}`} onClick={() => copyText(buildCompanyResearchPrompt(), 'company')}>📋 会社を調べる</button>
+        <button className="sub" onClick={openChatGPT}>📱 ChatGPT</button>
+      </div>
+      {hasRaw && <div className="phaseRow formatPhase">
+        <span className="phaseLabel">整える</span>
+        <button className="sub activeTool" onClick={extractKeyInfoFromRaw}>✨ 有益情報を抽出</button>
+        <button className="sub" onClick={() => copyText(buildAtlasPrompt(), 'atlas')}>📋 図鑑に整形</button>
+      </div>}
+      {copyState === 'company' && <span className="copyMini">会社調査プロンプトをコピー済み</span>}
+      {copyState === 'atlas' && <span className="copyMini">図鑑整形プロンプトをコピー済み</span>}
+      {extractState && <span className="copyMini">{extractState}</span>}
     </div>
     {copyState === 'failed' && <div className="miniError aiError">自動コピーに失敗しました。下に表示されたプロンプトを手動でコピーしてください。</div>}
     {manualPrompt && <div className="manualPromptBox"><div className="smallTitle">手動コピー用プロンプト</div><textarea rows={10} value={manualPrompt} readOnly onFocus={(e) => e.currentTarget.select()} /></div>}
     {aiState && <p className="mobileHint">{aiState}</p>}
     {aiDraft && <div className="aiDraftReview"><h4>AI下書き（採用前確認）</h4><textarea value={aiDraft} readOnly rows={10} /><div><button onClick={() => { setRaw(aiDraft); setAiDraft(''); }}>採用して上書き</button><button onClick={() => { setRaw(`${raw}${raw.trim() ? '\n\n--- AI下書き ---\n' : ''}${aiDraft}`); setAiDraft(''); }}>自分のメモに追記</button><button className="sub" onClick={() => setAiDraft('')}>破棄</button></div></div>}
 
-    <label className="noteField raw onlyRaw"><span>自分の図鑑メモ / 調査ログ</span><textarea rows={18} value={raw} placeholder="ここに自分で調べた内容、ChatGPT回答、IRメモ、決算メモ、AI下書きを貼り付け。" onChange={(e) => setRaw(e.target.value)} /></label>
+    <div className="memoEditArea">
+      {hasRaw && !editMode ? <AtlasMemoCards raw={raw} onEdit={() => setEditMode(true)} /> : <label className="noteField raw onlyRaw"><span>自分の図鑑メモ / 調査ログ</span><textarea rows={18} value={raw} placeholder="ここに自分で調べた内容、ChatGPT回答、IRメモ、決算メモ、AI下書きを貼り付け。" onChange={(e) => setRaw(e.target.value)} /></label>}
+    </div>
+    <ReferenceLinksPanel q={q} materials={rankMaterialsForToday([...(ir?.items || []), ...materials], q).slice(0, 8)} />
     <div className="noteSimpleFooter">
-      <span>{String(raw || '').trim() ? `${raw.length.toLocaleString('ja-JP')}文字` : '未入力'}</span>
+      <span>{hasRaw ? `${raw.length.toLocaleString('ja-JP')}文字` : '未入力'}</span>
       <span>完成度 {atlas.stars} / 最終更新 {note?.updatedAt ? new Date(note.updatedAt).toLocaleString('ja-JP') : '未保存'}</span>
       <button className="aiResearchBtn" onClick={saveNow}>{saved ? '保存済み' : '💾 図鑑に保存'}</button>
+      {hasRaw && editMode && <button className="sub" onClick={() => setEditMode(false)}>閲覧に戻る</button>}
       {note && <button className="sub dangerMini" onClick={() => { if (window.confirm('この銘柄の保存済み調査メモを削除しますか？')) onDelete?.(); }}>削除</button>}
     </div>
   </div>;
@@ -3176,8 +3358,10 @@ function MaterialDetail({ item, q }) {
 
 function IrPanel({ ir, loading, error, onReload, q }) {
   const [activeIdx, setActiveIdx] = useState(0);
-  const items = ir?.items || [];
-  const active = items[activeIdx] || items[0];
+  const [showAll, setShowAll] = useState(false);
+  const items = rankMaterialsForToday(ir?.items || [], q);
+  const visibleItems = showAll ? items : items.slice(0, 5);
+  const active = visibleItems[activeIdx] || visibleItems[0] || items[0];
   const important = items.filter((x) => x.important).length;
   const groups = items.reduce((acc, x) => { acc[x.kind] = (acc[x.kind] || 0) + 1; return acc; }, {});
 
@@ -3203,11 +3387,12 @@ function IrPanel({ ir, loading, error, onReload, q }) {
 
     <div className="materialLayout">
       <div className="irList compactList">
-        {items.length === 0 && !loading ? <div className="empty">直近TDnet IRは未検出です</div> : items.map((item, i) => <button className={`irItem ${item.important ? 'important' : ''} ${activeIdx === i ? 'active' : ''}`} key={`${item.source}-${i}-${item.title}`} onClick={() => setActiveIdx(i)}>
+        {items.length === 0 && !loading ? <div className="empty">直近TDnet IRは未検出です</div> : visibleItems.map((item, i) => <button className={`irItem ${item.important ? 'important' : ''} ${activeIdx === i ? 'active' : ''}`} key={`${item.source}-${i}-${item.title}`} onClick={() => setActiveIdx(i)}>
           <div><span className="irKind">{item.kind}</span>{item.important && <span className="importantBadge">重要</span>}<em>{item.source}</em></div>
           <b>{item.title}</b>
           <small>{formatMaterialDate(item)}</small>
         </button>)}
+        {items.length > 5 && <button className="sub showMoreMaterials" onClick={() => setShowAll((v) => !v)}>{showAll ? '閉じる' : `もっと見る（残り${items.length - 5}件）`}</button>}
       </div>
       <MaterialDetail item={active} q={q} />
     </div>
@@ -3297,13 +3482,15 @@ function DistortionBreakdown({ q }) {
   </div>;
 }
 
-function StatePanel({ q }) {
+function StatePanel({ q, companyNote, ir }) {
+  const confidence = calcJudgementConfidence({ q, companyNote, ir });
   return <section className="qualityPanel statePanel">
     <div className="qualityGrid">
       <div className={`qualityBox ${stateKindClass(q.stateKind || q.statePrimary)}`}><b>主判定</b><strong>{q.statePrimary || '—'}</strong><span>一覧では「主判定・理由・注意」の3点に畳み、詳細で補助タグを確認します。</span></div>
       <div className={`qualityBox ${trendClass(q.stateScore)}`}><b>観察価値</b><strong>{q.stateScore ?? '—'}点</strong><span>上昇・反発・歪みを横断した観察優先度</span></div>
       <div className={`qualityBox ${trendClass(q.distortionScore)}`}><b>歪み</b><strong>{q.distortionScore ?? '—'}点</strong><span>価格反応に対して中身が壊れていない可能性</span></div>
       <div className={`qualityBox ${(q.overshootScore || 0) >= 45 ? 'warn' : trendClass(q.overshootScore)}`}><b>売られすぎ</b><strong>{q.overshootScore ?? '—'}点</strong><span>{(q.overshootReasons || [])[0] || '自己正規化の過剰反応シグナル'}</span></div>
+      <div className={`qualityBox confidenceBox ${confidence.className}`}><b>判定信頼度</b><strong>{confidence.label}</strong><span>取得済: {confidence.reasons.join(' / ') || '少ない'}</span>{confidence.missing.length > 0 && <em>未取得: {confidence.missing.join(' / ')}</em>}</div>
       <div className={`qualityBox ${trendDangerClass(q.materialSeverity)}`}><b>材料の重さ</b><strong>{q.materialSeverity ?? '—'}点</strong><span>高いほど小ロット・撤退厳守</span></div>
     </div>
     <DistortionBreakdown q={q} />

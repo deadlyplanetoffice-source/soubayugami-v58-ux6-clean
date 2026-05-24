@@ -2536,3 +2536,57 @@ button {
     width: 100%;
   }
 }
+
+
+/* UX21.1 meaning and confidence layer */
+.verdictBox {
+  margin: 12px 0;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(148,163,184,.24);
+  background: rgba(15,23,42,.45);
+}
+.verdictBox strong { display:block; font-size:16px; line-height:1.45; }
+.verdictBox p { margin:6px 0 8px; color:var(--muted); font-size:12px; }
+.verdictBox.avoid { border-color:rgba(248,113,113,.45); background:rgba(127,29,29,.22); }
+.verdictBox.wait-reversal,.verdictBox.watch { border-color:rgba(250,204,21,.42); background:rgba(113,63,18,.18); }
+.verdictBox.trial,.verdictBox.momentum { border-color:rgba(74,222,128,.38); background:rgba(20,83,45,.18); }
+.atlasCta { width:100%; margin:6px 0 10px; justify-content:center; }
+.companyQuickSummary {
+  border:1px solid rgba(115,199,255,.24);
+  border-radius:14px;
+  padding:12px;
+  background:rgba(115,199,255,.055);
+  margin-bottom:12px;
+}
+.companyQuickSummary p { display:grid; grid-template-columns:92px 1fr; gap:8px; margin:7px 0; }
+.companyQuickSummary p b { color:#dff3ff; }
+.companyQuickSummary p span { color:var(--text); line-height:1.5; }
+.companyQuickSummary.high { border-color:rgba(74,222,128,.35); }
+.companyQuickSummary.mid { border-color:rgba(250,204,21,.35); }
+.companyQuickSummary.low { border-color:rgba(148,163,184,.28); }
+.emptyCompanyMemo { display:grid; gap:6px; color:var(--muted); }
+.phaseToolbar { flex-direction:column; align-items:stretch; }
+.phaseRow { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.phaseLabel { min-width:62px; color:var(--muted); font-size:12px; font-weight:700; }
+.formatPhase { border-top:1px dashed var(--border); padding-top:8px; }
+.activeTool { border-color:rgba(115,199,255,.55) !important; box-shadow:0 0 0 1px rgba(115,199,255,.16) inset; }
+.atlasMemoCards { display:grid; gap:10px; margin:12px 0; }
+.atlasMemoCard { border:1px solid rgba(115,199,255,.22); background:rgba(115,199,255,.055); border-radius:12px; padding:10px; }
+.atlasMemoCard h4 { margin:0 0 6px; color:#dff3ff; }
+.atlasMemoCard p { white-space:pre-wrap; margin:0; color:var(--text); line-height:1.55; }
+.referenceLinksPanel { margin:14px 0; display:grid; gap:8px; }
+.referenceLinksPanel h4 { margin:0; }
+.linkTier { border:1px solid var(--border); border-radius:12px; overflow:hidden; background:rgba(15,23,42,.35); }
+.linkTierHead { width:100%; display:flex; justify-content:space-between; align-items:center; background:transparent; border:0; padding:10px 12px; color:var(--text); }
+.linkTierBody { display:grid; gap:7px; padding:0 12px 12px; }
+.linkTierBody a,.linkTierBody span { font-size:13px; color:#dff3ff; text-decoration:none; }
+.confidenceBox.high { border-color:rgba(74,222,128,.38); }
+.confidenceBox.mid { border-color:rgba(250,204,21,.38); }
+.confidenceBox.low { border-color:rgba(148,163,184,.28); }
+.confidenceBox em { display:block; margin-top:4px; font-style:normal; color:var(--muted); font-size:12px; }
+.showMoreMaterials { width:100%; margin-top:8px; }
+@media (max-width:780px) {
+  .phaseRow button { flex:1 1 180px; }
+  .companyQuickSummary p { grid-template-columns:1fr; gap:2px; }
+}
