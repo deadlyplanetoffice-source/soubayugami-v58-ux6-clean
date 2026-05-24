@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = '相場歪観測機 v58 UX23.1';
+const APP_VERSION = '相場歪観測機 v58 UX23.2';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -1081,7 +1081,6 @@ function App() {
 
         {mobileView === 'detail' && <section className="mobilePage">
           <div className="mobilePageHead"><button className="backBtn" onClick={() => setMobileView(mobileBackView || 'watch')}>←</button><div><h1>{selected?.code || '銘柄'} {selected?.name || ''}</h1><p>{activeMobileQuote ? `${yen(activeMobileQuote.price)} / ${pct(activeMobileQuote.changePct)}` : '詳細'}</p></div><button className="smallAction" onClick={() => selected && refresh('watch', [selected.code])}>更新</button></div>
-          {selected && <div className="mobileDetailNav"><button disabled={!prevMobileQuote} onClick={() => jumpMobileDetail(prevMobileQuote)}>← {prevMobileQuote?.name || prevMobileQuote?.code || '前'}</button><button disabled={!nextMobileQuote} onClick={() => jumpMobileDetail(nextMobileQuote)}>{nextMobileQuote?.name || nextMobileQuote?.code || '次'} →</button></div>}
           {selected ? <div className="mobileDetailCard"><Detail mobile q={activeMobileQuote} selected={selected} activeTab={detailTab} setActiveTab={setDetailTab} research={research} ir={irCache[selected.code]} irLoading={irLoading} irError={irError} dropReport={dropReport?.code === selected.code ? dropReport : null} dropLoading={dropLoading} onInvestigate={() => investigateDrop(selected.code)} onReloadIr={() => { setIrCache((prev) => { const next = { ...prev }; delete next[selected.code]; return next; }); fetchIr(selected.code); }} companyNote={companyNotes[String(selected.code)]} onUpdateCompanyNote={updateCompanyNote} onDeleteCompanyNote={deleteCompanyNote} creditNote={creditNotes[String(selected.code)]} onUpdateCreditNote={updateCreditNote} onDeleteCreditNote={deleteCreditNote} onSaveAtlas={saveCurrentStateLocal} /></div> : <div className="mobileEmpty">銘柄が選択されていません。</div>}
         </section>}
 
@@ -1417,10 +1416,31 @@ function MobileAccordionGroup({ sections = [], intro = '', storageKey = '', init
   </div>;
 }
 
+
+class PanelErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false, message: '' }; }
+  static getDerivedStateFromError(error) { return { hasError: true, message: error?.message || '表示エラー' }; }
+  componentDidCatch(error) { console.error('PanelErrorBoundary', error); }
+  render() {
+    if (this.state.hasError) return <div className="panelErrorFallback"><b>このパネルの表示でエラーが出ました</b><p>{this.state.message}</p><button onClick={() => this.setState({ hasError: false, message: '' })}>再表示</button></div>;
+    return this.props.children;
+  }
+}
+function SafePanel({ children }) {
+  return <PanelErrorBoundary>{children}</PanelErrorBoundary>;
+}
+
 function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading, irError, dropReport, dropLoading, onInvestigate, onReloadIr, companyNote, onUpdateCompanyNote, onDeleteCompanyNote, creditNote, onUpdateCreditNote, onDeleteCreditNote, onSaveAtlas, mobile = false }) {
   const tab = activeTab || 'summary';
-  const setTab = setActiveTab;
-  useEffect(() => { const h = () => setActiveTab('note'); window.addEventListener('openCompanyNoteTab', h); return () => window.removeEventListener('openCompanyNoteTab', h); }, [setActiveTab]);
+  const detailTopRef = useRef(null);
+  const setTab = (next) => {
+    setActiveTab(next);
+    requestAnimationFrame(() => {
+      detailTopRef.current?.scrollIntoView?.({ block: 'start', behavior: 'auto' });
+    });
+  };
+  useEffect(() => { const h = () => setTab('note'); window.addEventListener('openCompanyNoteTab', h); return () => window.removeEventListener('openCompanyNoteTab', h); }, [setActiveTab]);
+  useEffect(() => { if (mobile) requestAnimationFrame(() => detailTopRef.current?.scrollIntoView?.({ block: 'start', behavior: 'auto' })); }, [mobile, q?.code, activeTab]);
   useEffect(() => { if (dropReport?.code === selected?.code) setActiveTab('drop'); }, [dropReport?.code, selected?.code]);
   if (!q) return <div className="empty">この銘柄の価格データは現在の一覧にありません。監視リスト表示に戻すか、価格更新を押してください。選択状態は維持しています。</div>;
   if (q.error) return <div className="empty">{q.error}</div>;
@@ -1439,10 +1459,12 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
   const deepInitialOpen = ['company','state','bottom','trend'].includes(tab) ? tab : '';
   const confirmInitialOpen = ['note','credit','tech','ir','drop'].includes(tab) ? tab : '';
 
-  return <div>
-    <div className="titleLine"><b>{q.code}</b><span>{q.name || selected.name}</span></div>
-    <div className="priceLine"><span>{yen(q.price)}</span><em className={clsBy(q.changePct)}>{pct(q.changePct)}</em></div>
-    <div className="badge">{scoreLabel(q.score)} / {q.score}点</div>
+  return <div ref={detailTopRef} className={mobile ? 'detailRoot mobileDetailRoot' : 'detailRoot'}>
+    {!mobile && <>
+      <div className="titleLine"><b>{q.code}</b><span>{q.name || selected.name}</span></div>
+      <div className="priceLine"><span>{yen(q.price)}</span><em className={clsBy(q.changePct)}>{pct(q.changePct)}</em></div>
+      <div className="badge">{scoreLabel(q.score)} / {q.score}点</div>
+    </>}
     <div className={mobile ? "detailTabs mobileCompactTabs" : "detailTabs"}>
       {(mobile ? [
         ['summary', '図鑑'],
@@ -1474,13 +1496,13 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
       { id: 'trend', title: '順張り', hint: '上昇継続・安全度・撤退', content: () => <TrendPanel q={q} /> },
     ]} />}
     {normalizedTab === 'confirm' && <MobileAccordionGroup storageKey={`confirm-${q.code}-${confirmInitialOpen}`} initialOpenId={confirmInitialOpen} intro="図鑑への書き込み・信用需給記録はここです。AIは下書き係、自分で確認して保存します。" sections={[
-      { id: 'note', title: '会社調査', hint: 'AI取得・プロンプト・図鑑メモ保存を1画面で完結', content: () => <UnifiedCompanyResearchPanel q={q} ir={ir} dropReport={dropReport} research={research} note={companyNote} onSave={(patch) => onUpdateCompanyNote?.(q.code, patch)} onDelete={() => onDeleteCompanyNote?.(q.code)} onSaveAtlas={onSaveAtlas} /> },
+      { id: 'note', title: '会社調査', hint: 'AI取得・プロンプト・図鑑メモ保存を1画面で完結', content: () => <SafePanel><UnifiedCompanyResearchPanel q={q} ir={ir} dropReport={dropReport} research={research} note={companyNote} onSave={(patch) => onUpdateCompanyNote?.(q.code, patch)} onDelete={() => onDeleteCompanyNote?.(q.code)} onSaveAtlas={onSaveAtlas} /></SafePanel> },
       { id: 'credit', title: '信用需給を記録する', hint: '信用データ貼り付け・抽出・保存', content: () => <CreditBalancePanel q={q} note={creditNote} onSave={(patch) => onUpdateCreditNote?.(q.code, patch)} onDelete={() => onDeleteCreditNote?.(q.code)} onSaveAtlas={onSaveAtlas} /> },
       { id: 'tech', title: '価格/指標', hint: '価格帯・出来高・指標確認', content: () => <TechnicalPanel q={q} /> },
       { id: 'ir', title: 'IR/ニュース', hint: '直近材料と更新', content: () => <IrPanel ir={ir} loading={irLoading} error={irError} onReload={onReloadIr} q={q} /> },
       { id: 'drop', title: '急落理由', hint: '急落調査・悪材料確認', content: () => <DropReasonPanel report={dropReport} loading={dropLoading} onInvestigate={onInvestigate} q={q} /> },
     ]} />}
-        {normalizedTab === 'note' && <UnifiedCompanyResearchPanel q={q} ir={ir} dropReport={dropReport} research={research} note={companyNote} onSave={(patch) => onUpdateCompanyNote?.(q.code, patch)} onDelete={() => onDeleteCompanyNote?.(q.code)} onSaveAtlas={onSaveAtlas} />}
+        {normalizedTab === 'note' && <SafePanel><UnifiedCompanyResearchPanel q={q} ir={ir} dropReport={dropReport} research={research} note={companyNote} onSave={(patch) => onUpdateCompanyNote?.(q.code, patch)} onDelete={() => onDeleteCompanyNote?.(q.code)} onSaveAtlas={onSaveAtlas} /></SafePanel>}
     {normalizedTab === 'credit' && <CreditBalancePanel q={q} note={creditNote} onSave={(patch) => onUpdateCreditNote?.(q.code, patch)} onDelete={() => onDeleteCreditNote?.(q.code)} onSaveAtlas={onSaveAtlas} />}
     {normalizedTab === 'tech' && <TechnicalPanel q={q} />}
     {normalizedTab === 'state' && <StatePanel q={q} companyNote={companyNote} ir={ir} />}
@@ -2130,7 +2152,7 @@ function CompanyNotePanel({ q, note, onSave, onDelete, onSaveAtlas }) {
   const [manualPrompt, setManualPrompt] = useState('');
   const [editMode, setEditMode] = useState(false);
   const [extractState, setExtractState] = useState('');
-  useEffect(() => { setRaw(normalizeResearchNote(note).raw || ''); setSaved(false); setAiState(''); setAiDraft(''); setCopyState(''); setManualPrompt(''); }, [q?.code, note?.updatedAt]);
+  useEffect(() => { setRaw(normalizeResearchNote(note).raw || ''); setSaved(false); setAiState(''); setAiDraft(''); setCopyState(''); setManualPrompt(''); setEditMode(false); setExtractState(''); }, [q?.code, note?.updatedAt]);
 
   async function pasteRaw() {
     try {

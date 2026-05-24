@@ -2699,3 +2699,28 @@ button {
   border-color: rgba(250,204,21,.34);
   background: rgba(113,63,18,.12);
 }
+
+
+/* UX23.2 mobile detail cleanup + safe panels */
+.mobileDetailRoot {
+  scroll-margin-top: 8px;
+}
+.mobileDetailRoot .detailTabs.mobileCompactTabs {
+  margin-top: 4px;
+}
+.mobileDetailCard {
+  margin-top: 0;
+}
+.panelErrorFallback {
+  border: 1px solid rgba(248,113,113,.45);
+  background: rgba(127,29,29,.18);
+  border-radius: 14px;
+  padding: 14px;
+  color: var(--text);
+}
+.panelErrorFallback p {
+  color: var(--muted);
+}
+.panelErrorFallback button {
+  margin-top: 8px;
+}
