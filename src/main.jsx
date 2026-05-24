@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = '相場歪観測機 v58 UX23.3';
+const APP_VERSION = '相場歪観測機 v58 UX23.4';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -2813,8 +2813,10 @@ function UnifiedCompanyResearchPanel({ q, ir, dropReport, research, note, onSave
   const [aiDraft, setAiDraft] = useState('');
   const [copyState, setCopyState] = useState('');
   const [manualPrompt, setManualPrompt] = useState('');
+  const [editMode, setEditMode] = useState(false);
+  const [extractState, setExtractState] = useState('');
 
-  useEffect(() => { setRaw(normalizeResearchNote(note).raw || ''); setSaved(false); setAiState(''); setAiDraft(''); setCopyState(''); setManualPrompt(''); }, [q?.code, note?.updatedAt]);
+  useEffect(() => { setRaw(normalizeResearchNote(note).raw || ''); setSaved(false); setAiState(''); setAiDraft(''); setCopyState(''); setManualPrompt(''); setEditMode(false); setExtractState(''); }, [q?.code, note?.updatedAt]);
 
   async function loadResearch(force = false) {
     if (!q?.code) return;
