@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = '相場歪観測機 v58 UX21.2';
+const APP_VERSION = '相場歪観測機 v58 UX23.1';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -128,7 +128,7 @@ function mobileSortOptions(mode) {
     { label: '下落順', key: 'changePct', dir: 'asc' },
     { label: '上昇順', key: 'changePct', dir: 'desc' },
     { label: '出来高', key: 'volume', dir: 'desc' },
-    { label: 'スコア', key: mobileScoreSortKey(mode), dir: 'desc' },
+    { label: 'モード点', key: mobileScoreSortKey(mode), dir: 'desc' },
     { label: 'RR', key: mobileRRSortKey(mode), dir: 'desc' },
     { label: '危険', key: mode === 'trend' ? 'trendDanger' : mode === 'bottom' ? 'bottomDanger' : 'danger', dir: 'desc' },
     { label: '歪み度', key: 'overshootScore', dir: 'desc' },
@@ -242,6 +242,18 @@ function trendClass(v) {
 
 function sourceLabel(source) {
   return source === 'nikkei225' ? '日経225' : source === 'growth' ? 'グロース' : source === 'prime' ? 'プライム' : source === 'standard' ? 'スタンダード' : source === 'topix' ? 'TOPIX近似' : '全候補';
+}
+
+
+function modeVerdictClass(kind, text = '', score = null, danger = null) {
+  const t = String(text || '');
+  const d = Number(danger);
+  const s = Number(score);
+  if (Number.isFinite(d) && d >= 80) return 'danger';
+  if (/危険|回避|触らない|崩れ|悪材料|見送り|対象外/.test(t)) return 'danger';
+  if (/高リスク|注意|監視|要確認|暫定|待ち/.test(t)) return 'warn';
+  if (/候補|反発|試し玉|継続|強い|良好|歪み/.test(t)) return Number.isFinite(s) && s >= 65 ? 'good' : 'watch';
+  return 'neutral';
 }
 
 function stateKindClass(label) {
@@ -1246,8 +1258,13 @@ function MobileQuoteCard({ q, mode, selected, watched = false, companyNote, cred
   const mainRR = q.bottomRR ?? q.trendRR ?? q.predictedRR;
   const entry = q.bottomEntryPrice || q.trendEntryPrice || q.oshimePrice;
   const danger = q.bottomDangerScore ?? q.trendDangerScore ?? quality?.dangerScore ?? q.dangerScore;
+  const oshimeClass = modeVerdictClass('oshime', oshimeJudge, q.score, danger);
+  const yugamiClass = modeVerdictClass('distortion', yugamiJudge, q.overshootScore || q.distortionScore, danger);
+  const trendClassName = modeVerdictClass('trend', trendJudge, q.trendScore, q.trendDangerScore);
+  const bottomClassName = modeVerdictClass('bottom', bottomJudge, q.bottomScore, q.bottomDangerScore);
+  const dangerTone = dangerClass(danger);
   const atlas = useMemo(() => atlasProgress(companyNote, creditNote, q), [companyNote, creditNote, q?.code]);
-  return <article className={`mobileQuoteCard mobileQuoteAccordion ${open ? 'open' : 'closed'} ${selected?.code === q.code ? 'selected' : ''}`}>
+  return <article className={`mobileQuoteCard mobileQuoteAccordion ${open ? 'open' : 'closed'} danger-${dangerTone} ${selected?.code === q.code ? 'selected' : ''}`}>
     <button className="mqFoldHead" type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
       <div className="mqTop">
         <div><b>{q.code}</b><span>{q.name || q.localName || ''}</span></div>
@@ -1258,17 +1275,17 @@ function MobileQuoteCard({ q, mode, selected, watched = false, companyNote, cred
       <div className="mqFoldHint"><span>{open ? '閉じる' : '開く'}</span><em>{judge} / {rrText(mainRR)}</em></div>
     </button>
     {open && <div className="mqFoldBody">
-      <div className="mqVerdicts">
-        <div><label>押し目</label><b>{oshimeJudge}</b></div>
-        <div><label>歪み</label><b>{yugamiJudge}</b></div>
-        <div><label>順張り</label><b>{trendJudge}</b></div>
-        <div><label>試し玉</label><b>{bottomJudge}</b></div>
+      <div className="mqVerdicts visualVerdicts">
+        <div className={`verdictMini ${oshimeClass}`}><label>押し目</label><b>{oshimeJudge}</b></div>
+        <div className={`verdictMini ${yugamiClass}`}><label>歪み</label><b>{yugamiJudge}</b></div>
+        <div className={`verdictMini ${trendClassName}`}><label>順張り</label><b>{trendJudge}</b></div>
+        <div className={`verdictMini ${bottomClassName}`}><label>試し玉</label><b>{bottomJudge}</b></div>
       </div>
       <div className="mqMetrics compactMetrics fourMetrics">
-        <div><label>状態</label><b>{q.stateScore ?? score ?? '—'}</b></div>
-        <div><label>スコア</label><b>{score ?? '—'}</b></div>
+        <div><label>観察価値</label><b>{q.stateScore ?? score ?? '—'}</b></div>
+        <div><label>モード点</label><b>{score ?? '—'}</b></div>
         <div className={(q.overshootScore || 0) >= 45 ? 'hotMetric' : ''}><label>歪み度</label><b>{q.overshootScore ?? '—'}</b></div>
-        <div><label>危険</label><b>{danger ?? '—'}</b></div>
+        <div className={`dangerMetric ${dangerTone}`}><label>危険度</label><b>{danger ?? '—'}</b></div>
       </div>
       <div className="mqSub">{entry ? `目安 ${yen(entry)}` : (q.stateReason || q.oshimeLabel || q.trendEntryLabel || '詳細で確認')}</div>
       <div className="mqAtlasLine compact"><span>図鑑</span><b>{atlas.stars}</b><em>{atlas.missing.length ? `未記録: ${atlas.missing.slice(0,2).join(' / ')}` : '記録充実'}</em></div>
@@ -1362,7 +1379,7 @@ function DetailJump({ q, onOpenDetail, tabs = [] }) {
 
 function ScannerTable({ mode, rows, selected, onOpenDetail, sortSpec, setSortSpec, miniChartMode, miniChartCache, miniChartLoading, onToggleMiniChart, companyNotes = {} }) {
   if (mode === 'state') return <table className="scannerTable stateTable compactDecisionTable"><thead><tr>
-    <SortTh id="code" label="銘柄" sortSpec={sortSpec} setSortSpec={setSortSpec} /><th>形</th><SortTh id="price" label="現在値" sortSpec={sortSpec} setSortSpec={setSortSpec} /><SortTh id="changePct" label="前日比" sortSpec={sortSpec} setSortSpec={setSortSpec} /><SortTh id="volume" label="出来高" sortSpec={sortSpec} setSortSpec={setSortSpec} /><SortTh id="stateScore" label="観察" sortSpec={sortSpec} setSortSpec={setSortSpec} /><SortTh id="overshootScore" label="歪み度" sortSpec={sortSpec} setSortSpec={setSortSpec} /><th>主判定</th><th>理由</th><th>注意</th><th>RR</th><th>移動</th>
+    <SortTh id="code" label="銘柄" sortSpec={sortSpec} setSortSpec={setSortSpec} /><th>形</th><SortTh id="price" label="現在値" sortSpec={sortSpec} setSortSpec={setSortSpec} /><SortTh id="changePct" label="前日比" sortSpec={sortSpec} setSortSpec={setSortSpec} /><SortTh id="volume" label="出来高" sortSpec={sortSpec} setSortSpec={setSortSpec} /><SortTh id="stateScore" label="観察価値" sortSpec={sortSpec} setSortSpec={setSortSpec} /><SortTh id="overshootScore" label="歪み度" sortSpec={sortSpec} setSortSpec={setSortSpec} /><th>主判定</th><th>理由</th><th>注意</th><th>RR</th><th>移動</th>
   </tr></thead><tbody>{rows.map((q) => <tr key={q.code} className={selected?.code === q.code ? 'selected' : ''} onClick={() => onOpenDetail(q, 'summary')}><td><b>{q.code}</b><span>{q.name}</span>{companyNotes[String(q.code)] && <em className="researchedMini">調査済</em>}</td><td><RowSpark q={q} miniChartMode={miniChartMode} miniChartCache={miniChartCache} miniChartLoading={miniChartLoading} onToggleMiniChart={onToggleMiniChart} /></td><td>{fmt(q.price)}</td><td className={clsBy(q.changePct)}>{pct(q.changePct)}</td><td><b>{fmt(q.volume)}</b><span>{fmt(q.volumeRatio, '倍')}</span></td><td><span className={`score ${trendClass(q.stateScore)}`}>{q.stateScore ?? '—'}</span></td><td><span className={`score ${(q.overshootScore || 0) >= 45 ? 'hot' : trendClass(q.overshootScore)}`}>{q.overshootScore ?? '—'}</span></td><td><span className={`pill tiny ${stateKindClass(q.stateKind || q.statePrimary)}`}>{q.statePrimary || '—'}</span></td><td><span>{q.stateReason || '—'}</span></td><td><span className="muted">{q.stateCaution || '—'}</span></td><td className={rrClass(q.bottomRR ?? q.predictedRR)}>{rrText(q.bottomRR ?? q.predictedRR)}</td><td><DetailJump q={q} onOpenDetail={onOpenDetail} tabs={[["summary","結論"],["state","状態"],["chart","チャート"],["ir","IR"]]} /></td></tr>)}</tbody></table>;
 
   if (mode === 'bottom') return <table className="scannerTable"><thead><tr>
@@ -1439,7 +1456,7 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
                 ['note', '記録調査'],
         ['credit', '信用需給'],
         ['tech', '価格/指標'],
-        ['state', '状態/歪み'],
+        ['state', '判定/歪み'],
         ['bottom', '試し玉'],
         ['trend', '順張り'],
         ['ir', 'IR/ニュース'],
@@ -1452,7 +1469,7 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
     {normalizedTab === 'summary' && <SummaryPanel q={q} research={research} ir={ir} companyNote={companyNote} creditNote={creditNote} onWrite={() => setTab('note')} onCredit={() => setTab('credit')} onDeep={() => setTab(mobile ? 'deep' : 'state')} />}
     {normalizedTab === 'chart' && <ChartPanel q={q} />}
     {normalizedTab === 'deep' && <MobileAccordionGroup storageKey={`deep-${q.code}-${deepInitialOpen}`} initialOpenId={deepInitialOpen} intro="項目を選ぶまで中身は開きません。必要な材料だけ開いて確認します。" sections={[
-      { id: 'state', title: '状態/歪み', hint: '状態タグ・歪みの理由', content: () => <StatePanel q={q} companyNote={companyNote} ir={ir} /> },
+      { id: 'state', title: '判定/歪み', hint: '観察価値・危険度・歪み分類', content: () => <StatePanel q={q} companyNote={companyNote} ir={ir} /> },
       { id: 'bottom', title: '試し玉', hint: '下値・反発・危険度', content: () => <BottomPanel q={q} /> },
       { id: 'trend', title: '順張り', hint: '上昇継続・安全度・撤退', content: () => <TrendPanel q={q} /> },
     ]} />}
@@ -1583,6 +1600,44 @@ function LinkTier({ title, children, defaultOpen = false }) {
   </section>;
 }
 
+
+function refineDistortionType(q = {}, ir = null, companyNote = null) {
+  const items = ir?.items || [];
+  const titleText = items.map((x) => x?.title || '').join(' / ');
+  const supplyKw = /公募|売出|売り出し|立会外分売|ロックアップ|希薄化|第三者割当|指数除外|大株主|CB|新株予約権/;
+  const fundaKw = /下方修正|赤字|減益|減配|無配|減損|未達|業績修正|営業損|経常損|通期予想.*下方/;
+  const raw = String(companyNote?.raw || '');
+  const noteDistortion = raw.match(/【歪み判定】([\s\S]*?)(?=【|$)/)?.[1] || raw;
+  const noteTrue = /本物の歪み|過剰反応|業績影響なし|会社は変わっていない|一過性|割安/.test(noteDistortion);
+  const noteDamage = /業績悪化|構造悪化|回復困難|ファンダ悪化|減配|下方修正/.test(noteDistortion);
+
+  if (supplyKw.test(titleText)) return {
+    type: 'supply_event', label: '需給・イベント型', confidence: '中',
+    reasons: ['IR/ニュースに需給イベント候補'], action: '一過性か需給悪化継続か確認'
+  };
+  if (noteTrue) return {
+    type: 'true_distortion', label: '本物の歪み（調査確認）', confidence: '高',
+    reasons: ['会社メモで過剰反応を確認'], action: '反発確認後に小ロット'
+  };
+  if (noteDamage) return {
+    type: 'fundamental_damage', label: 'ファンダ悪化型（調査確認）', confidence: '高',
+    reasons: ['会社メモで業績・構造悪化を確認'], action: '見送り。回復確認まで触らない'
+  };
+  if (fundaKw.test(titleText)) return {
+    type: 'needs_research', label: 'ファンダ悪化疑い（要調査）', confidence: '暫定',
+    reasons: ['業績悪化系キーワード検出'], action: '会社を調べる。IR本文で影響度確認'
+  };
+  if (q.distortionType && q.distortionType !== 'unknown') return {
+    type: q.distortionType, label: q.distortionTypeLabel || '歪み分類あり', confidence: q.distortionTypeConfidence === 'medium' ? '中' : q.distortionTypeConfidence === 'high' ? '高' : '暫定',
+    reasons: q.distortionTypeReasons || [], action: q.distortionTypeAction || '分類根拠を確認'
+  };
+  if ((q.overshootScore || 0) >= 50) return {
+    type: 'needs_research', label: '本物の歪み候補（暫定）', confidence: '暫定',
+    reasons: ['売られすぎシグナル高め', '会社情報未確認'], action: '会社を調べて事業価値の毀損有無を確認'
+  };
+  return { type: 'unknown', label: '分類保留', confidence: '暫定', reasons: ['追加材料が必要'], action: 'IR・会社メモを確認' };
+}
+
 function SummaryPanel({ q, research, ir, companyNote, creditNote, onWrite, onCredit, onDeep }) {
   const atlas = atlasProgress(companyNote, creditNote, q);
   const core = extractAtlasCore(companyNote, q?.sector ? `${q.sector}領域。図鑑メモを保存すると会社の核がここに出ます。` : '図鑑メモを保存すると会社の核がここに出ます。');
@@ -1591,6 +1646,7 @@ function SummaryPanel({ q, research, ir, companyNote, creditNote, onWrite, onCre
   const actionClass = research?.stanceClass || quality.finalClass || '';
   const distortion = (q.reasons || []).slice(0, 2).join(' / ') || q.stateReason || q.oshimeLabel || '歪み理由は未検出。価格・出来高・材料を確認。';
   const verdict = synthesizeVerdict(q);
+  const distortionType = refineDistortionType(q, ir, companyNote);
   const hasCompanyRaw = !!String(companyNote?.raw || '').trim();
   const ctaLabel = !hasCompanyRaw ? '🔍 この会社を調べる' : atlas.level <= 2 ? '📝 図鑑メモを追記する' : '📖 図鑑メモを開く';
   return <div className="summaryPanel atlasCardPanel">
@@ -1614,6 +1670,7 @@ function SummaryPanel({ q, research, ir, companyNote, creditNote, onWrite, onCre
       <div className={`verdictBox ${verdict.action}`}>
         <strong>{verdict.headline}</strong>
         <p>根拠: 押し目={verdict.oshimeJudge} / 歪み度 {q.overshootScore ?? '—'} / 試し玉={verdict.bottomJudge} / 信頼度 {verdict.confidence}</p>
+        <div className={`distortionTypeLine ${distortionType.type}`}><b>歪み分類：{distortionType.label}</b><span>信頼度 {distortionType.confidence} / {distortionType.action}</span></div>
         <button className="sub" onClick={onDeep}>もっと深く判定を読む →</button>
       </div>
       <button className="primary atlasCta" onClick={onWrite}>{ctaLabel}</button>
@@ -3488,12 +3545,16 @@ function DistortionBreakdown({ q }) {
 
 function StatePanel({ q, companyNote, ir }) {
   const confidence = calcJudgementConfidence({ q, companyNote, ir });
+  const danger = q.bottomDangerScore ?? q.trendDangerScore ?? q.dangerScore ?? q.materialSeverity;
+  const dangerReason = (q.bottomDangerReasons || q.trendDangerReasons || q.riskReasons || q.stateConstraints || [])[0] || q.stateCaution || '危険要因は詳細材料で確認';
   return <section className="qualityPanel statePanel">
     <div className="qualityGrid">
       <div className={`qualityBox ${stateKindClass(q.stateKind || q.statePrimary)}`}><b>主判定</b><strong>{q.statePrimary || '—'}</strong><span>一覧では「主判定・理由・注意」の3点に畳み、詳細で補助タグを確認します。</span></div>
       <div className={`qualityBox ${trendClass(q.stateScore)}`}><b>観察価値</b><strong>{q.stateScore ?? '—'}点</strong><span>上昇・反発・歪みを横断した観察優先度</span></div>
+      <div className={`qualityBox dangerBox ${dangerClass(danger)}`}><b>危険度</b><strong>{danger ?? '—'}点</strong><span>{dangerReason}</span></div>
       <div className={`qualityBox ${trendClass(q.distortionScore)}`}><b>歪み</b><strong>{q.distortionScore ?? '—'}点</strong><span>価格反応に対して中身が壊れていない可能性</span></div>
       <div className={`qualityBox ${(q.overshootScore || 0) >= 45 ? 'warn' : trendClass(q.overshootScore)}`}><b>売られすぎ</b><strong>{q.overshootScore ?? '—'}点</strong><span>{(q.overshootReasons || [])[0] || '自己正規化の過剰反応シグナル'}</span></div>
+      <div className={`qualityBox distortionTypeBox ${refineDistortionType(q, ir, companyNote).type}`}><b>歪み分類</b><strong>{refineDistortionType(q, ir, companyNote).label}</strong><span>{refineDistortionType(q, ir, companyNote).action}</span></div>
       <div className={`qualityBox confidenceBox ${confidence.className}`}><b>判定信頼度</b><strong>{confidence.label}</strong><span>取得済: {confidence.reasons.join(' / ') || '少ない'}</span>{confidence.missing.length > 0 && <em>未取得: {confidence.missing.join(' / ')}</em>}</div>
       <div className={`qualityBox ${trendDangerClass(q.materialSeverity)}`}><b>材料の重さ</b><strong>{q.materialSeverity ?? '—'}点</strong><span>高いほど小ロット・撤退厳守</span></div>
     </div>

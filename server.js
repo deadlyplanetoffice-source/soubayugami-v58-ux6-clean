@@ -1653,6 +1653,92 @@ function calcOvershootScore({ z60 = null, bbPos = null, atrPct = null, closes = 
 }
 
 
+function classifyDistortionTypePhase1({ closes = [], irItems = [], fundamental = null, overshootScore = 0, price = null, changePct = null } = {}) {
+  const reasons = [];
+  const items = irItems || [];
+  const titleText = items.map((x) => x?.title || '').join(' / ');
+
+  const supplyKw = /公募|売出|売り出し|立会外分売|ロックアップ|希薄化|第三者割当|指数除外|大株主|CB|新株予約権/;
+  const fundaKw = /下方修正|赤字|減益|減配|無配|減損|未達|業績修正|営業損|経常損|通期予想.*下方/;
+
+  const supplyHit = supplyKw.test(titleText);
+  const fundaHit = fundaKw.test(titleText);
+
+  const nums = (closes || []).map(Number).filter(Number.isFinite);
+  let normalizationScore = 0;
+  if (nums.length >= 90) {
+    const p90 = nums.at(-90);
+    const p60 = nums.at(-60);
+    const peak60 = Math.max(...nums.slice(-60));
+    const now = Number(price ?? nums.at(-1));
+    const pre60gain = Number.isFinite(p90) && Number.isFinite(p60) && Math.abs(p90) > 0 ? ((p60 - p90) / Math.abs(p90)) * 100 : 0;
+    const fromPeak = Number.isFinite(now) && peak60 > 0 ? ((now - peak60) / peak60) * 100 : 0;
+    if (pre60gain > 30) { normalizationScore += 30; reasons.push('直近前期間で30%超上昇'); }
+    else if (pre60gain > 15) { normalizationScore += 15; reasons.push('直近前期間で15%超上昇'); }
+    if (fromPeak < -20) { normalizationScore += 25; reasons.push('60日高値から20%超下落'); }
+    else if (fromPeak < -15) { normalizationScore += 20; reasons.push('60日高値から15%超下落'); }
+  }
+  const per = Number(fundamental?.per);
+  const pbr = Number(fundamental?.pbr);
+  if (Number.isFinite(per) && per > 40) { normalizationScore += 15; reasons.push(`PER ${per.toFixed(1)}倍で高め`); }
+  else if (Number.isFinite(per) && per > 25) { normalizationScore += 8; reasons.push('PER高め'); }
+  if (Number.isFinite(pbr) && pbr > 6) { normalizationScore += 8; reasons.push('PBR高め'); }
+
+  if (supplyHit) {
+    return {
+      distortionType: 'supply_event',
+      distortionTypeLabel: '需給・イベント型',
+      distortionTypeConfidence: 'medium',
+      distortionTypeReasons: ['公募・売出・希薄化・ロックアップ等の需給イベント候補'],
+      distortionTypeAction: '一過性か需給悪化継続か確認。反発確認なしの買いは避ける',
+      normalizationScore,
+    };
+  }
+
+  if (normalizationScore >= 45) {
+    return {
+      distortionType: 'normalization',
+      distortionTypeLabel: '過熱の正常化',
+      distortionTypeConfidence: 'medium',
+      distortionTypeReasons: reasons.slice(0, 4),
+      distortionTypeAction: '歪んで上がったものの戻りの可能性。安易な押し目買い不可',
+      normalizationScore,
+    };
+  }
+
+  if (fundaHit) {
+    return {
+      distortionType: 'needs_research',
+      distortionTypeLabel: 'ファンダ悪化疑い（要調査）',
+      distortionTypeConfidence: 'provisional',
+      distortionTypeReasons: ['業績悪化系キーワード検出。影響の深さは未確認'],
+      distortionTypeAction: '会社を調べる。構造悪化か過剰反応かをIR本文で確認',
+      normalizationScore,
+    };
+  }
+
+  if (Number(overshootScore) >= 50) {
+    return {
+      distortionType: 'needs_research',
+      distortionTypeLabel: '本物の歪み候補（暫定）',
+      distortionTypeConfidence: 'provisional',
+      distortionTypeReasons: ['売られすぎシグナル高め', 'ファンダ悪化・需給イベントは未確認'],
+      distortionTypeAction: '会社調査で事業価値が壊れていないか確認',
+      normalizationScore,
+    };
+  }
+
+  return {
+    distortionType: 'unknown',
+    distortionTypeLabel: '分類保留',
+    distortionTypeConfidence: 'provisional',
+    distortionTypeReasons: ['歪み分類には追加材料が必要'],
+    distortionTypeAction: '価格・IR・会社メモを確認',
+    normalizationScore,
+  };
+}
+
+
 function buildStateTags(q) {
   const tags = [];
   const actionTags = [];
@@ -1962,6 +2048,7 @@ async function fetchYahooQuote(code, options = {}) {
   const fundamental = withFundamental ? await fetchFundamentals(c) : null;
   const volatility = calcVolatilityContext(closes, highs, lows, price);
   const overshoot = calcOvershootScore({ ...volatility, bbPos: boll?.bbPos, atrPct: volatility?.atrPct, closes, sectorRelativeChange: null, drawdown20: bottom?.drawdown20, fundamental });
+  const distortionTypeInfo = classifyDistortionTypePhase1({ closes, fundamental, overshootScore: overshoot?.overshootScore, price, changePct });
   const quote = {
     code: c, symbol,
     name: jp,
@@ -1977,6 +2064,7 @@ async function fetchYahooQuote(code, options = {}) {
     ...trend,
     ...bottom,
     ...overshoot,
+    ...distortionTypeInfo,
     fetchedAt: new Date().toISOString(),
   };
   let creditSupply = null;
