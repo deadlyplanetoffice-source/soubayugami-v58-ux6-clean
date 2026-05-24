@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = '相場歪観測機 v58 UX23.2';
+const APP_VERSION = '相場歪観測機 v58 UX23.3';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },

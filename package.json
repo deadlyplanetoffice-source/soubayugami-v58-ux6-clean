@@ -1,6 +1,6 @@
 {
-  "name": "soubayugami-kansokuki-v58-ux23-2",
-  "version": "58.23.2",
+  "name": "soubayugami-kansokuki-v58-ux23-3",
+  "version": "58.23.3",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm:server\" \"npm:client\"",
