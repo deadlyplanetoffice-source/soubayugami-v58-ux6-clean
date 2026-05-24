@@ -2750,3 +2750,21 @@ button {
 .phaseHelp span {
   line-height: 1.55;
 }
+
+
+/* UX23.7 bottom close button for long accordion sections */
+.accordionBottomActions {
+  position: sticky;
+  bottom: 86px;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  margin: 18px 0 4px;
+  padding: 10px 0 2px;
+  background: linear-gradient(180deg, rgba(8,15,24,0), rgba(8,15,24,.92) 35%, rgba(8,15,24,.98));
+}
+.closeAccordionBottom {
+  width: min(100%, 360px);
+  border-color: rgba(115,199,255,.45) !important;
+  background: rgba(15,23,42,.88) !important;
+}

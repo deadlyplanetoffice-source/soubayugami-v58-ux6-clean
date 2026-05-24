@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = '相場歪観測機 v58 UX23.6';
+const APP_VERSION = '相場歪観測機 v58 UX23.7';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -1410,7 +1410,12 @@ function MobileAccordionGroup({ sections = [], intro = '', storageKey = '', init
           <span><b>{sec.title}</b>{sec.hint && <em>{sec.hint}</em>}</span>
           <strong>{open ? '閉じる' : '開く'}</strong>
         </button>
-        {open && <div className="mobileAccordionBody">{typeof sec.content === 'function' ? sec.content() : sec.content}</div>}
+        {open && <div className="mobileAccordionBody">
+          {typeof sec.content === 'function' ? sec.content() : sec.content}
+          <div className="accordionBottomActions">
+            <button className="sub closeAccordionBottom" onClick={() => toggle(sec.id)}>この項目を閉じる</button>
+          </div>
+        </div>}
       </section>;
     })}
   </div>;
