@@ -1,6 +1,6 @@
 {
-  "name": "soubayugami-kansokuki-v58-ux24-3j-retro-sf",
-  "version": "58.24.3-j",
+  "name": "soubayugami-kansokuki-v58-ux24-3l-manual-folder-tags",
+  "version": "58.24.3-l",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm:server\" \"npm:client\"",

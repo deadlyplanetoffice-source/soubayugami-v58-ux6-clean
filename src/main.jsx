@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = 'MDO v58 / UX24.3J';
+const APP_VERSION = 'MDO v58 / UX24.3L';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -91,30 +91,49 @@ function atlasStatusText(companyNote, creditNote) {
 }
 
 
-const ATLAS_DEFAULT_FOLDERS = ['最優先監視', '押し目候補', '強テーマ銘柄', '決算確認待ち', '信用需給注意', '長期候補', '保留', '除外・墓場', '未分類'];
+const ATLAS_DEFAULT_FOLDERS = ['未分類', '最優先監視', '押し目候補', '強テーマ銘柄', '決算確認待ち', '信用需給注意', '長期候補', '保留', '除外・墓場'];
 
-function atlasDefaultFolder({ companyNote, creditNote, q, watched }) {
-  const raw = String(companyNote?.raw || companyNote?.summary || '').trim();
-  const text = `${raw} ${q?.sector || ''} ${q?.name || ''}`;
-  // 自動分類は弱い補助。既存の図鑑メモには「指数除外」「対象外寄り」などの語が混じるため、
-  // 「除外・墓場」は原則として手動指定か、監視外かつ明示的な見送り文言がある場合だけにする。
-  if (/QPS|キオクシア|宇宙|防衛|半導体|AI|量子|国策|強テーマ|SAR/.test(text)) return '強テーマ銘柄';
-  if (/決算|進捗|上方|下方|コンセンサス|四季報/.test(text)) return '決算確認待ち';
-  if (creditNote || /信用|買残|売残|貸借|空売り|需給/.test(text)) return '信用需給注意';
-  if (/押し目|歪み|下限|反発|試し玉/.test(text)) return '押し目候補';
-  if (watched) return '最優先監視';
-  if (/自分用の暫定判断[^\n。]*除外|判断[^\n。]*除外|明確に除外|見送り|墓場|壊れ|撤退/.test(text)) return '除外・墓場';
+const ATLAS_DEFAULT_TAGS = ['保有'];
+
+function atlasDefaultFolder() {
+  // UX24.3L: 初期分類は必ず未分類。
+  // 強テーマ・押し目・保有などは自動推定せず、自分で棚分けする。
   return '未分類';
 }
 
 function atlasFolderClass(folder = '') {
+  if (/保有/.test(folder)) return 'hold';
   if (/最優先/.test(folder)) return 'hot';
   if (/強テーマ/.test(folder)) return 'theme';
   if (/押し目/.test(folder)) return 'dip';
   if (/決算/.test(folder)) return 'earnings';
   if (/信用/.test(folder)) return 'credit';
+  if (/長期/.test(folder)) return 'long';
+  if (/保留|未分類/.test(folder)) return 'neutral';
   if (/除外|墓場/.test(folder)) return 'grave';
   return 'neutral';
+}
+
+
+function normalizeAtlasTags(tags) {
+  if (Array.isArray(tags)) return tags.map((x) => String(x || '').trim()).filter(Boolean);
+  return String(tags || '').split(/[、,\s]+/).map((x) => x.trim()).filter(Boolean);
+}
+
+function atlasTagClass(tag = '') {
+  if (/保有/.test(tag)) return 'hold';
+  if (/現物/.test(tag)) return 'cash';
+  if (/信用/.test(tag)) return 'credit';
+  if (/決算/.test(tag)) return 'earnings';
+  if (/要調査|確認/.test(tag)) return 'watch';
+  return 'neutral';
+}
+
+function atlasToggleTag(tags, tag) {
+  const list = normalizeAtlasTags(tags);
+  const t = String(tag || '').trim();
+  if (!t) return list;
+  return list.includes(t) ? list.filter((x) => x !== t) : [...list, t];
 }
 
 function atlasTypeLabel(note, q) {
@@ -556,14 +575,16 @@ function App() {
       const pref = atlasPrefs[String(item.code)] || {};
       const rawName = pref.name || q?.name || q?.localName || w?.name || '';
       const name = rawName ? cleanName(item.code, rawName) : '';
-      const fallbackFolder = atlasDefaultFolder({ companyNote, creditNote, q, watched: !!w });
-      const folder = pref.folder || fallbackFolder;
+      const prefTags = normalizeAtlasTags(pref.tags);
+      const legacyHoldFolder = pref.folder === '保有';
+      const folder = legacyHoldFolder ? '未分類' : (pref.folder || atlasDefaultFolder());
+      const tags = legacyHoldFolder && !prefTags.includes('保有') ? [...prefTags, '保有'] : prefTags;
       const progress = atlasProgress(companyNote, creditNote, q);
       const updatedMs = companyNote?.updatedAt ? new Date(companyNote.updatedAt).getTime() : creditNote?.updatedAt ? new Date(creditNote.updatedAt).getTime() : 0;
       return {
         code: String(item.code), name, q, w, watched: !!w, companyNote, creditNote,
         folder, pinned: !!pref.pinned, order: Number.isFinite(Number(pref.order)) ? Number(pref.order) : (w?.watchIndex ?? item.watchIndex ?? 10000 + idx),
-        tags: pref.tags || q?.sector || w?.sector || '', progress, updatedMs,
+        tags, progress, updatedMs,
         typeLabel: atlasTypeLabel(companyNote, q), snippet: atlasSnippet(companyNote),
       };
     });
@@ -595,6 +616,15 @@ function App() {
   function updateAtlasPref(code, patch) {
     if (!code) return;
     setAtlasPrefs((prev) => ({ ...prev, [String(code)]: { ...(prev[String(code)] || {}), ...patch } }));
+  }
+
+  function toggleAtlasTag(item, tag) {
+    if (!item?.code) return;
+    setAtlasPrefs((prev) => {
+      const key = String(item.code);
+      const current = normalizeAtlasTags(prev[key]?.tags || item.tags || []);
+      return { ...prev, [key]: { ...(prev[key] || {}), tags: atlasToggleTag(current, tag) } };
+    });
   }
 
   function moveAtlasItem(code, dir) {
@@ -1293,7 +1323,8 @@ function App() {
               onTogglePin={(item) => updateAtlasPref(item.code, { pinned: !item.pinned })}
               onMove={(item, dir) => moveAtlasItem(item.code, dir)}
               onFolderChange={(item, folder) => updateAtlasPref(item.code, { folder })}
-              onAddWatch={(item) => addToWatch(item.q || item.w || { code: item.code, name: item.name, sector: item.tags || '' })}
+              onTagToggle={toggleAtlasTag}
+              onAddWatch={(item) => addToWatch(item.q || item.w || { code: item.code, name: item.name, sector: Array.isArray(item.tags) ? item.tags.join(' ') : (item.tags || '') })}
               onDeleteItem={deleteAtlasItem}
               onAddFolder={addAtlasFolder}
               onDeleteFolder={deleteAtlasFolder}
@@ -1427,7 +1458,8 @@ function App() {
           onTogglePin={(item) => updateAtlasPref(item.code, { pinned: !item.pinned })}
           onMove={(item, dir) => moveAtlasItem(item.code, dir)}
           onFolderChange={(item, folder) => updateAtlasPref(item.code, { folder })}
-          onAddWatch={(item) => addToWatch(item.q || item.w || { code: item.code, name: item.name, sector: item.tags || '' })}
+          onTagToggle={toggleAtlasTag}
+          onAddWatch={(item) => addToWatch(item.q || item.w || { code: item.code, name: item.name, sector: Array.isArray(item.tags) ? item.tags.join(' ') : (item.tags || '') })}
           onDeleteItem={deleteAtlasItem}
               onAddFolder={addAtlasFolder}
               onDeleteFolder={deleteAtlasFolder}
@@ -1491,7 +1523,7 @@ function App() {
 
 
 
-function AtlasListPanel({ items, folders, folderFilter, setFolderFilter, scope = 'active', setScope, search, setSearch, open, setOpen, onOpenItem, onTogglePin, onMove, onFolderChange, onAddWatch, onDeleteItem, onAddFolder, onDeleteFolder, onMoveVisibleToFolder }) {
+function AtlasListPanel({ items, folders, folderFilter, setFolderFilter, scope = 'active', setScope, search, setSearch, open, setOpen, onOpenItem, onTogglePin, onMove, onFolderChange, onTagToggle, onAddWatch, onDeleteItem, onAddFolder, onDeleteFolder, onMoveVisibleToFolder }) {
   const countText = `${items.length}件`;
   const [newFolderName, setNewFolderName] = useState('');
   const [moveFolderName, setMoveFolderName] = useState('');
@@ -1535,6 +1567,7 @@ function AtlasListPanel({ items, folders, folderFilter, setFolderFilter, scope =
           onTogglePin={onTogglePin}
           onMove={onMove}
           onFolderChange={onFolderChange}
+          onTagToggle={onTagToggle}
           onAddWatch={onAddWatch}
           onDeleteItem={onDeleteItem}
           folders={usableFolders}
@@ -1544,7 +1577,7 @@ function AtlasListPanel({ items, folders, folderFilter, setFolderFilter, scope =
   </section>;
 }
 
-function AtlasCompactAccordionRow({ item, idx, total, onOpenItem, onTogglePin, onMove, onFolderChange, onAddWatch, onDeleteItem, folders = ATLAS_DEFAULT_FOLDERS }) {
+function AtlasCompactAccordionRow({ item, idx, total, onOpenItem, onTogglePin, onMove, onFolderChange, onTagToggle, onAddWatch, onDeleteItem, folders = ATLAS_DEFAULT_FOLDERS }) {
   const [expanded, setExpanded] = useState(false);
   const q = item.q || null;
   const quality = q ? buildQuality(q) : null;
@@ -1565,6 +1598,7 @@ function AtlasCompactAccordionRow({ item, idx, total, onOpenItem, onTogglePin, o
         <span className="atlasMarketMini">{q ? yen(q.price) : '価格なし'}</span>
         {q && <span className={`atlasPctMini ${clsBy(q.changePct)}`}>{pct(q.changePct)}</span>}
         <span className={`atlasFolderTiny ${atlasFolderClass(item.folder)}`}>{item.folder}</span>
+        {normalizeAtlasTags(item.tags).map((tag) => <span key={tag} className={`atlasTagTiny ${atlasTagClass(tag)}`}>{tag}</span>)}
         <span className="atlasOrderMini" onClick={(e) => e.stopPropagation()}>
           <button onClick={() => onMove(item, -1)} disabled={idx === 0} title="上へ">↑</button>
           <button onClick={() => onMove(item, 1)} disabled={idx === total - 1} title="下へ">↓</button>
@@ -1578,7 +1612,8 @@ function AtlasCompactAccordionRow({ item, idx, total, onOpenItem, onTogglePin, o
         <span>{item.progress.label}</span>
       </div>
       <p>{snippet}</p>
-      <div className="atlasSecondControls">
+      <div className="atlasSecondControls atlasTagControls">
+        <button className={normalizeAtlasTags(item.tags).includes('保有') ? 'atlasTagToggle active hold' : 'atlasTagToggle'} onClick={() => onTagToggle?.(item, '保有')} title="保有タグを切替">保有タグ</button>
         <select value={item.folder} onChange={(e) => onFolderChange(item, e.target.value)} title="フォルダ変更">
           {folders.map((f) => <option key={f} value={f}>{f}</option>)}
         </select>
