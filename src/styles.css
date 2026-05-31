@@ -2900,3 +2900,37 @@ button {
   opacity: .85;
   font-size: 11px;
 }
+
+
+/* UX24.1 bottom fixed menu contrast: light background / dark text */
+.mobileBottomNav,
+.bottomTabBar,
+.mobileTabBar {
+  background: rgba(245, 248, 252, 0.96) !important;
+  border: 1px solid rgba(15, 23, 42, 0.18) !important;
+  box-shadow: 0 10px 30px rgba(0,0,0,.28), 0 0 0 1px rgba(255,255,255,.8) inset !important;
+  backdrop-filter: blur(14px);
+}
+.mobileBottomNav button,
+.bottomTabBar button,
+.mobileTabBar button {
+  color: #0f172a !important;
+  background: transparent !important;
+  border-color: rgba(15, 23, 42, 0.18) !important;
+}
+.mobileBottomNav button.active,
+.bottomTabBar button.active,
+.mobileTabBar button.active {
+  color: #ffffff !important;
+  background: #0f172a !important;
+  border-color: #0f172a !important;
+  box-shadow: 0 4px 14px rgba(15,23,42,.22) !important;
+}
+.mobileBottomNav button span,
+.bottomTabBar button span,
+.mobileTabBar button span,
+.mobileBottomNav button b,
+.bottomTabBar button b,
+.mobileTabBar button b {
+  color: inherit !important;
+}
