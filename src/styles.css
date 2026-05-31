@@ -2956,3 +2956,150 @@ button {
 .nextActionCard {
   box-shadow: 0 0 0 1px rgba(255,255,255,.04) inset, 0 10px 28px rgba(0,0,0,.12);
 }
+
+/* UX24.3A Atlas List v1: card前の一覧・検索・フォルダ管理 */
+.atlasListPanel {
+  margin: 12px 0 14px;
+  padding: 10px;
+  border: 1px solid rgba(148, 163, 184, .28);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, .035);
+}
+.atlasListHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.atlasListToggle {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, .35);
+  background: rgba(255,255,255,.72);
+  cursor: pointer;
+}
+.atlasListHead b { display: block; font-size: 13px; }
+.atlasListHead span { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; }
+.atlasListControls {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  margin-top: 10px;
+}
+.atlasListControls input,
+.atlasListControls select,
+.atlasRowTools select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, .35);
+  border-radius: 10px;
+  padding: 7px 8px;
+  background: rgba(255,255,255,.86);
+  color: inherit;
+  font-size: 12px;
+}
+.atlasFolderChips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 8px 0 2px;
+}
+.atlasFolderChips button {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, .35);
+  background: rgba(255,255,255,.7);
+  padding: 5px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.atlasFolderChips button.active {
+  background: #0f172a;
+  color: #fff;
+  border-color: #0f172a;
+}
+.atlasListRows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  max-height: 460px;
+  overflow: auto;
+  padding-right: 2px;
+}
+.atlasListRow {
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid rgba(148, 163, 184, .22);
+  border-radius: 12px;
+  background: rgba(255,255,255,.72);
+}
+.atlasListRow.pinned { border-color: rgba(245, 158, 11, .55); background: rgba(255, 251, 235, .78); }
+.pinBtn {
+  border: 0;
+  background: transparent;
+  font-size: 17px;
+  color: #f59e0b;
+  cursor: pointer;
+  align-self: start;
+  padding: 3px 0;
+}
+.atlasMainBtn {
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+}
+.atlasMainBtn b { font-size: 13px; margin-right: 6px; }
+.atlasMainBtn span { font-size: 13px; font-weight: 700; }
+.atlasMainBtn small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
+.atlasMainBtn p { margin: 4px 0 0; color: var(--muted); font-size: 11px; line-height: 1.35; }
+.atlasFolderBadge {
+  display: inline-flex;
+  margin-left: 0;
+  margin-top: 5px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+  border: 1px solid rgba(148, 163, 184, .35);
+  background: rgba(241,245,249,.9);
+  color: #334155;
+}
+.atlasFolderBadge.hot { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+.atlasFolderBadge.theme { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+.atlasFolderBadge.dip { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+.atlasFolderBadge.earnings { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.atlasFolderBadge.credit { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+.atlasFolderBadge.grave { background: #e5e7eb; color: #374151; border-color: #d1d5db; }
+.atlasRowTools {
+  grid-column: 2;
+  display: grid;
+  grid-template-columns: 32px 32px 1fr auto;
+  gap: 5px;
+  margin-top: 6px;
+}
+.atlasRowTools button {
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, .35);
+  background: rgba(255,255,255,.78);
+  font-size: 11px;
+  cursor: pointer;
+}
+.atlasRowTools button:disabled { opacity: .35; cursor: default; }
+.atlasEmpty {
+  color: var(--muted);
+  font-size: 12px;
+  padding: 10px;
+  text-align: center;
+}
+@media (max-width: 780px) {
+  .atlasListRows { max-height: none; }
+  .atlasRowTools { grid-template-columns: 34px 34px 1fr; }
+  .atlasRowTools button:last-child { grid-column: 1 / -1; padding: 7px; }
+}

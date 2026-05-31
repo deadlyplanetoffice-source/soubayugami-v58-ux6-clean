@@ -1,6 +1,6 @@
 {
-  "name": "soubayugami-kansokuki-v58-ux24-2",
-  "version": "58.24.2",
+  "name": "soubayugami-kansokuki-v58-ux24-3a-atlas-list",
+  "version": "58.24.3-a",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm:server\" \"npm:client\"",

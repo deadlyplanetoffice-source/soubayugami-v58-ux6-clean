@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = '相場歪観測機 v58 UX24.2';
+const APP_VERSION = '相場歪観測機 v58 UX24.3A Atlas List v1';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -75,6 +75,47 @@ function sectorColor(sector = '') {
 function atlasStatusText(companyNote, creditNote) {
   const a = atlasProgress(companyNote, creditNote);
   return `${a.label} ${a.stars}`;
+}
+
+
+const ATLAS_DEFAULT_FOLDERS = ['最優先監視', '押し目候補', '強テーマ銘柄', '決算確認待ち', '信用需給注意', '長期候補', '保留', '除外・墓場', '未分類'];
+
+function atlasDefaultFolder({ companyNote, creditNote, q, watched }) {
+  const raw = String(companyNote?.raw || companyNote?.summary || '').trim();
+  const text = `${raw} ${q?.sector || ''} ${q?.name || ''}`;
+  if (/除外|見送り|墓場|壊れ|撤退/.test(text)) return '除外・墓場';
+  if (/QPS|キオクシア|宇宙|防衛|半導体|AI|量子|国策|強テーマ|SAR/.test(text)) return '強テーマ銘柄';
+  if (/決算|進捗|上方|下方|コンセンサス|四季報/.test(text)) return '決算確認待ち';
+  if (creditNote || /信用|買残|売残|貸借|空売り|需給/.test(text)) return '信用需給注意';
+  if (/押し目|歪み|下限|反発|試し玉/.test(text)) return '押し目候補';
+  if (watched) return '最優先監視';
+  return '未分類';
+}
+
+function atlasFolderClass(folder = '') {
+  if (/最優先/.test(folder)) return 'hot';
+  if (/強テーマ/.test(folder)) return 'theme';
+  if (/押し目/.test(folder)) return 'dip';
+  if (/決算/.test(folder)) return 'earnings';
+  if (/信用/.test(folder)) return 'credit';
+  if (/除外|墓場/.test(folder)) return 'grave';
+  return 'neutral';
+}
+
+function atlasTypeLabel(note, q) {
+  const raw = String(note?.raw || '').replace(/\s+/g, ' ');
+  const text = `${raw} ${q?.sector || ''}`;
+  if (/実績上振れ|上方|最高益|進捗|増益/.test(text) && /期待|思惑|テーマ|国策|AI|宇宙|防衛/.test(text)) return '思惑+実績期待';
+  if (/実績上振れ|上方|最高益|進捗|増益/.test(text)) return '実績上振れ型';
+  if (/思惑|テーマ|国策|材料|急騰|レアアース/.test(text)) return '思惑急騰型';
+  if (/半導体|AI|宇宙|防衛|バイオ|レアアース|資源/.test(text)) return 'セクター連動型';
+  if (/赤字|希薄化|ワラント|継続前提|資金調達/.test(text)) return '要リスク確認';
+  return '未分類';
+}
+
+function atlasSnippet(note) {
+  const raw = String(note?.raw || note?.summary || '').replace(/[#＊*`>|【】]/g, '').replace(/\s+/g, ' ').trim();
+  return raw ? clipText(raw, 72) : '図鑑メモ未記録';
 }
 
 
@@ -397,6 +438,10 @@ function App() {
   const [detailTab, setDetailTab] = useState('summary');
   const [companyNotes, setCompanyNotes] = useState(() => load('companyResearchNotes', {}));
   const [creditNotes, setCreditNotes] = useState(() => load('creditBalanceNotes', {}));
+  const [atlasPrefs, setAtlasPrefs] = useState(() => load('atlasPrefs', {}));
+  const [atlasSearch, setAtlasSearch] = useState('');
+  const [atlasFolderFilter, setAtlasFolderFilter] = useState(() => load('atlasFolderFilter', 'all'));
+  const [atlasListOpen, setAtlasListOpen] = useState(() => load('atlasListOpen', true));
   const [clockTick, setClockTick] = useState(Date.now());
   const refreshInFlightRef = useRef(false);
   const importFileRef = useRef(null);
@@ -422,6 +467,9 @@ function App() {
   useEffect(() => save('sortSpec', sortSpec), [sortSpec]);
   useEffect(() => save('companyResearchNotes', companyNotes), [companyNotes]);
   useEffect(() => save('creditBalanceNotes', creditNotes), [creditNotes]);
+  useEffect(() => save('atlasPrefs', atlasPrefs), [atlasPrefs]);
+  useEffect(() => save('atlasFolderFilter', atlasFolderFilter), [atlasFolderFilter]);
+  useEffect(() => save('atlasListOpen', atlasListOpen), [atlasListOpen]);
   useEffect(() => save('mobileLastSeen', lastSeen), [lastSeen]);
 
   // UX13: 端末保存スナップショットの自動復元は停止。
@@ -468,6 +516,77 @@ function App() {
 
   const selectedQuote = selected ? (quotes.find((q) => String(q.code) === String(selected.code)) || quoteCache[String(selected.code)] || null) : null;
   const research = useMemo(() => buildAutoResearch(selectedQuote, selected), [selectedQuote, selected?.code]);
+
+  const atlasItems = useMemo(() => {
+    const byCode = new Map();
+    const add = (code, seed = {}) => {
+      const key = String(code || '').trim();
+      if (!key) return;
+      byCode.set(key, { ...(byCode.get(key) || {}), ...seed, code: key });
+    };
+    watch.forEach((w, idx) => add(w.code, { watch: w, watched: true, watchIndex: idx }));
+    quotes.forEach((q) => add(q.code, { q }));
+    Object.keys(quoteCache || {}).forEach((code) => add(code, { q: quoteCache[code] }));
+    Object.keys(companyNotes || {}).forEach((code) => add(code, { companyNote: companyNotes[code] }));
+    Object.keys(creditNotes || {}).forEach((code) => add(code, { creditNote: creditNotes[code] }));
+    return Array.from(byCode.values()).map((item, idx) => {
+      const q = item.q || quoteCache[String(item.code)] || quotes.find((x) => String(x.code) === String(item.code)) || null;
+      const w = item.watch || watch.find((x) => String(x.code) === String(item.code)) || null;
+      const companyNote = item.companyNote || companyNotes[String(item.code)] || null;
+      const creditNote = item.creditNote || creditNotes[String(item.code)] || null;
+      const pref = atlasPrefs[String(item.code)] || {};
+      const name = cleanName(item.code, pref.name || q?.name || q?.localName || w?.name || item.code);
+      const fallbackFolder = atlasDefaultFolder({ companyNote, creditNote, q, watched: !!w });
+      const folder = pref.folder || fallbackFolder;
+      const progress = atlasProgress(companyNote, creditNote, q);
+      const updatedMs = companyNote?.updatedAt ? new Date(companyNote.updatedAt).getTime() : creditNote?.updatedAt ? new Date(creditNote.updatedAt).getTime() : 0;
+      return {
+        code: String(item.code), name, q, w, watched: !!w, companyNote, creditNote,
+        folder, pinned: !!pref.pinned, order: Number.isFinite(Number(pref.order)) ? Number(pref.order) : (w?.watchIndex ?? item.watchIndex ?? 10000 + idx),
+        tags: pref.tags || q?.sector || w?.sector || '', progress, updatedMs,
+        typeLabel: atlasTypeLabel(companyNote, q), snippet: atlasSnippet(companyNote),
+      };
+    });
+  }, [watch, quotes, quoteCache, companyNotes, creditNotes, atlasPrefs]);
+
+  const atlasFolders = useMemo(() => {
+    const set = new Set(ATLAS_DEFAULT_FOLDERS);
+    atlasItems.forEach((x) => set.add(x.folder || '未分類'));
+    return ['all', ...Array.from(set).filter(Boolean)];
+  }, [atlasItems]);
+
+  const visibleAtlasItems = useMemo(() => {
+    const kw = atlasSearch.trim().toLowerCase();
+    return atlasItems.filter((x) => {
+      if (atlasFolderFilter !== 'all' && x.folder !== atlasFolderFilter) return false;
+      if (!kw) return true;
+      return [x.code, x.name, x.folder, x.tags, x.typeLabel, x.snippet].join(' ').toLowerCase().includes(kw);
+    }).sort((a, b) => Number(b.pinned) - Number(a.pinned) || (a.order - b.order) || (b.updatedMs - a.updatedMs) || a.code.localeCompare(b.code, 'ja'));
+  }, [atlasItems, atlasSearch, atlasFolderFilter]);
+
+  function updateAtlasPref(code, patch) {
+    if (!code) return;
+    setAtlasPrefs((prev) => ({ ...prev, [String(code)]: { ...(prev[String(code)] || {}), ...patch } }));
+  }
+
+  function moveAtlasItem(code, dir) {
+    const list = visibleAtlasItems;
+    const i = list.findIndex((x) => String(x.code) === String(code));
+    const j = Math.max(0, Math.min(list.length - 1, i + dir));
+    if (i < 0 || i === j) return;
+    const current = list[i];
+    const target = list[j];
+    setAtlasPrefs((prev) => ({
+      ...prev,
+      [current.code]: { ...(prev[current.code] || {}), order: target.order },
+      [target.code]: { ...(prev[target.code] || {}), order: current.order },
+    }));
+  }
+
+  function openAtlasItem(item) {
+    const q = item.q || item.w || { code: item.code, name: item.name, sector: item.tags || '' };
+    openDetail({ ...q, code: item.code, name: item.name, sector: q.sector || item.tags || '' }, 'company');
+  }
 
   function openDetail(q, tab = 'summary') {
     if (!q) return;
@@ -887,6 +1006,7 @@ function App() {
       sortSpec,
       companyResearchNotes: companyNotes,
       creditBalanceNotes: creditNotes,
+      atlasPrefs,
       ...(isDebug ? {
         _debugQuotes: quotes,
         _debugCapturedAt: new Date().toISOString(),
@@ -909,6 +1029,7 @@ function App() {
     if (data.sortSpec && typeof data.sortSpec === 'object') setSortSpec(data.sortSpec);
     if (data.companyResearchNotes && typeof data.companyResearchNotes === 'object') setCompanyNotes(data.companyResearchNotes);
     if (data.creditBalanceNotes && typeof data.creditBalanceNotes === 'object') setCreditNotes(data.creditBalanceNotes);
+    if (data.atlasPrefs && typeof data.atlasPrefs === 'object') setAtlasPrefs(data.atlasPrefs);
     setDataTransferMsg(message);
     setTimeout(() => setDataTransferMsg(''), 6000);
   }
@@ -1182,6 +1303,21 @@ function App() {
             <p>{dropReport.diagnosis?.summary}</p>
           </div>}
         </div>
+        <AtlasListPanel
+          items={visibleAtlasItems}
+          folders={atlasFolders}
+          folderFilter={atlasFolderFilter}
+          setFolderFilter={setAtlasFolderFilter}
+          search={atlasSearch}
+          setSearch={setAtlasSearch}
+          open={atlasListOpen}
+          setOpen={setAtlasListOpen}
+          onOpenItem={openAtlasItem}
+          onTogglePin={(item) => updateAtlasPref(item.code, { pinned: !item.pinned })}
+          onMove={(item, dir) => moveAtlasItem(item.code, dir)}
+          onFolderChange={(item, folder) => updateAtlasPref(item.code, { folder })}
+          onAddWatch={(item) => addToWatch(item.q || item.w || { code: item.code, name: item.name, sector: item.tags || '' })}
+        />
         <div className="watchlist">{watch.map((w) => (
           <div
             key={w.code}
@@ -1238,6 +1374,48 @@ function App() {
 }
 
 
+
+
+function AtlasListPanel({ items, folders, folderFilter, setFolderFilter, search, setSearch, open, setOpen, onOpenItem, onTogglePin, onMove, onFolderChange, onAddWatch }) {
+  const countText = `${items.length}件`;
+  return <section className="atlasListPanel">
+    <div className="atlasListHead">
+      <button className="atlasListToggle" onClick={() => setOpen(!open)}>{open ? '▾' : '▸'}</button>
+      <div><b>Company Atlas 一覧</b><span>{countText} / カード前の整理棚</span></div>
+    </div>
+    {open && <>
+      <div className="atlasListControls">
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="図鑑検索：コード / 銘柄 / タグ / メモ" />
+        <select value={folderFilter} onChange={(e) => setFolderFilter(e.target.value)}>
+          {folders.map((f) => <option key={f} value={f}>{f === 'all' ? '全フォルダ' : f}</option>)}
+        </select>
+      </div>
+      <div className="atlasFolderChips">
+        {folders.slice(0, 10).map((f) => <button key={f} className={folderFilter === f ? 'active' : ''} onClick={() => setFolderFilter(f)}>{f === 'all' ? '全件' : f}</button>)}
+      </div>
+      <div className="atlasListRows">
+        {items.length === 0 && <div className="atlasEmpty">該当する図鑑メモはありません。</div>}
+        {items.map((item, idx) => <div key={item.code} className={`atlasListRow ${item.pinned ? 'pinned' : ''}`}>
+          <button className="pinBtn" title="一覧上部に固定" onClick={() => onTogglePin(item)}>{item.pinned ? '★' : '☆'}</button>
+          <button className="atlasMainBtn" onClick={() => onOpenItem(item)}>
+            <b>{item.code}</b><span>{item.name}</span>
+            <em className={`atlasFolderBadge ${atlasFolderClass(item.folder)}`}>{item.folder}</em>
+            <small>{item.progress.stars} / {item.typeLabel}</small>
+            <p>{item.snippet}</p>
+          </button>
+          <div className="atlasRowTools">
+            <button onClick={() => onMove(item, -1)} disabled={idx === 0}>↑</button>
+            <button onClick={() => onMove(item, 1)} disabled={idx === items.length - 1}>↓</button>
+            <select value={item.folder} onChange={(e) => onFolderChange(item, e.target.value)}>
+              {ATLAS_DEFAULT_FOLDERS.map((f) => <option key={f} value={f}>{f}</option>)}
+            </select>
+            {!item.watched && <button onClick={() => onAddWatch(item)}>監視+</button>}
+          </div>
+        </div>)}
+      </div>
+    </>}
+  </section>;
+}
 
 function MobileQuoteCard({ q, mode, selected, watched = false, companyNote, creditNote, miniChartMode = {}, miniChartCache = {}, miniChartLoading = {}, onToggleMiniChart, onOpen, onWatch, orderIndex = null, orderTotal = 0, onMoveUp, onMoveDown }) {
   const [open, setOpen] = useState(false);
