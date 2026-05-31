@@ -1992,7 +1992,7 @@ button {
 /* UX10: iPhone bottom tab + comparative detail navigation */
 @media (max-width: 780px) {
   .mobileApp { padding-bottom: calc(92px + env(safe-area-inset-bottom)); }
-  .mobileBrandCompact { position: sticky; top: 0; z-index: 11; background: rgba(7,13,20,.96); backdrop-filter: blur(10px); padding: 8px 0 10px; border-bottom: 1px solid #1d2a3a; }
+  .mobileBrandCompact { position: sticky; top: 0; z-index: 11; background: rgba(7,13,20,.96); backdrop-filter: blur(10px); padding: 4px 0 6px; border-bottom: 1px solid #1d2a3a; }
   .mobilePageHead.noBack { grid-template-columns: minmax(0,1fr) auto; }
   .mobileTabBar {
     position: fixed;

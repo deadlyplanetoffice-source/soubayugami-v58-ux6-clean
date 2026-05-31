@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = '相場歪観測機 v58 UX24.3C Atlas List single';
+const APP_VERSION = 'MDO v58 / UX24.3D';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -83,12 +83,14 @@ const ATLAS_DEFAULT_FOLDERS = ['最優先監視', '押し目候補', '強テー�
 function atlasDefaultFolder({ companyNote, creditNote, q, watched }) {
   const raw = String(companyNote?.raw || companyNote?.summary || '').trim();
   const text = `${raw} ${q?.sector || ''} ${q?.name || ''}`;
-  if (/除外|見送り|墓場|壊れ|撤退/.test(text)) return '除外・墓場';
+  // 自動分類は弱い補助。既存の図鑑メモには「指数除外」「対象外寄り」などの語が混じるため、
+  // 「除外・墓場」は原則として手動指定か、監視外かつ明示的な見送り文言がある場合だけにする。
   if (/QPS|キオクシア|宇宙|防衛|半導体|AI|量子|国策|強テーマ|SAR/.test(text)) return '強テーマ銘柄';
   if (/決算|進捗|上方|下方|コンセンサス|四季報/.test(text)) return '決算確認待ち';
   if (creditNote || /信用|買残|売残|貸借|空売り|需給/.test(text)) return '信用需給注意';
   if (/押し目|歪み|下限|反発|試し玉/.test(text)) return '押し目候補';
   if (watched) return '最優先監視';
+  if (/自分用の暫定判断[^\n。]*除外|判断[^\n。]*除外|明確に除外|見送り|墓場|壊れ|撤退/.test(text)) return '除外・墓場';
   return '未分類';
 }
 
@@ -1145,7 +1147,7 @@ function App() {
     {isMobile && <div className="mobileApp">
       <div className="mobileShell">
         
-        <div className="mobileBrand mobileBrandCompact"><span>{APP_VERSION}</span><em>動く銘柄図鑑 / {lastUpdated ? `最終更新 ${lastUpdated.toLocaleTimeString('ja-JP')}` : '未更新'}</em></div>
+        <div className="mobileBrand mobileBrandCompact"><span>{APP_VERSION}</span><em>{lastUpdated ? `更新 ${lastUpdated.toLocaleTimeString('ja-JP')}` : '未更新'}</em></div>
 
         {mobileView === 'scanner' && <section className="mobilePage">
           <div className="mobilePageHead noBack">
@@ -1977,7 +1979,7 @@ function SummaryPanel({ q, research, ir, companyNote, creditNote, onWrite, onCre
     <section className="atlasHeroCard" style={{ borderTopColor: sectorColor(q.sector || q.market) }}>
       <div className="atlasHeroTop">
         <div>
-          <span className="atlasSubTitle">動く銘柄図鑑カード</span>
+          <span className="atlasSubTitle">Atlas Card</span>
           <h2>{q.code} {q.name}</h2>
           <p>{q.sector || q.market || 'テーマ未設定'}</p>
         </div>
