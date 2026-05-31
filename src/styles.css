@@ -3271,3 +3271,144 @@ button {
 .mobileAtlasListWrap + .mobileCards {
   display: none;
 }
+
+/* UX24.3E: Atlas Listを本当の一覧化。縦幅を圧縮し、タップでカード詳細へ移動 */
+.atlasListRow.compact {
+  grid-template-columns: 30px 1fr;
+  align-items: start;
+  padding: 8px 9px;
+}
+.atlasRowMeta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin-top: 4px;
+}
+.atlasMiniPrice {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  white-space: nowrap;
+}
+.atlasMiniPrice strong { font-size: 13px; }
+.atlasMiniPrice em { font-size: 12px; font-style: normal; font-weight: 900; }
+.atlasRowTools.compactTools {
+  grid-template-columns: 34px 34px minmax(118px, 1fr) auto auto;
+  align-items: stretch;
+}
+.atlasDeleteBtn {
+  color: #b91c1c;
+  border-color: rgba(248, 113, 113, .45) !important;
+  background: rgba(254, 226, 226, .86) !important;
+  font-weight: 800;
+}
+
+.mobileAtlasListWrap .atlasListPanel {
+  padding: 10px;
+  border-radius: 18px;
+}
+.mobileAtlasListWrap .atlasListHead b {
+  font-size: 16px;
+}
+.mobileAtlasListWrap .atlasListHead span {
+  font-size: 12px;
+}
+.mobileAtlasListWrap .atlasListControls {
+  gap: 8px;
+  margin-top: 10px;
+}
+.mobileAtlasListWrap .atlasListControls input,
+.mobileAtlasListWrap .atlasListControls select {
+  font-size: 15px;
+  padding: 10px 12px;
+  border-radius: 14px;
+}
+.mobileAtlasListWrap .atlasFolderChips {
+  gap: 8px;
+  padding: 10px 0 6px;
+}
+.mobileAtlasListWrap .atlasFolderChips button {
+  font-size: 14px;
+  padding: 9px 12px;
+}
+.mobileAtlasListWrap .atlasListRows {
+  gap: 8px;
+}
+.mobileAtlasListWrap .atlasListRow.compact {
+  grid-template-columns: 34px 1fr;
+  gap: 8px;
+  padding: 10px 9px;
+  border-radius: 16px;
+}
+.mobileAtlasListWrap .pinBtn {
+  font-size: 26px;
+  padding-top: 0;
+}
+.mobileAtlasListWrap .atlasRowTitle {
+  gap: 7px;
+}
+.mobileAtlasListWrap .atlasMainBtn b {
+  font-size: 21px;
+  line-height: 1.1;
+}
+.mobileAtlasListWrap .atlasMainBtn span {
+  font-size: 17px;
+  line-height: 1.25;
+}
+.mobileAtlasListWrap .atlasRowMeta {
+  margin-top: 5px;
+  gap: 5px 8px;
+}
+.mobileAtlasListWrap .atlasMiniPrice strong {
+  font-size: 18px;
+  color: #f8fafc;
+}
+.mobileAtlasListWrap .atlasMiniPrice em {
+  font-size: 16px;
+}
+.mobileAtlasListWrap .atlasFolderBadge {
+  margin-top: 0;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+.mobileAtlasListWrap .atlasMainBtn small {
+  display: inline-flex;
+  font-size: 13px;
+  margin-top: 0;
+}
+.mobileAtlasListWrap .atlasMainBtn p {
+  display: none;
+}
+.mobileAtlasListWrap .atlasRowTools.compactTools {
+  grid-column: 1 / -1;
+  grid-template-columns: 44px 44px minmax(116px, 1fr) auto auto;
+  gap: 7px;
+  margin-top: 8px;
+}
+.mobileAtlasListWrap .atlasRowTools.compactTools button,
+.mobileAtlasListWrap .atlasRowTools.compactTools select {
+  min-height: 42px;
+  font-size: 14px;
+  border-radius: 12px;
+}
+.mobileAtlasListWrap .atlasWatchAdd {
+  padding: 0 10px;
+}
+.mobileAtlasListWrap .atlasDeleteBtn {
+  color: #fecaca;
+  background: rgba(127, 29, 29, .62) !important;
+  border-color: rgba(248, 113, 113, .55) !important;
+  padding: 0 10px;
+}
+@media (max-width: 390px) {
+  .mobileAtlasListWrap .atlasRowTools.compactTools {
+    grid-template-columns: 40px 40px 1fr 56px;
+  }
+  .mobileAtlasListWrap .atlasWatchAdd {
+    grid-column: 3;
+  }
+  .mobileAtlasListWrap .atlasDeleteBtn {
+    grid-column: 4;
+  }
+}

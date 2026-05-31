@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = 'MDO v58 / UX24.3D';
+const APP_VERSION = 'MDO v58 / UX24.3E';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -588,6 +588,23 @@ function App() {
   function openAtlasItem(item) {
     const q = item.q || item.w || { code: item.code, name: item.name, sector: item.tags || '' };
     openDetail({ ...q, code: item.code, name: item.name, sector: q.sector || item.tags || '' }, 'company');
+  }
+
+  function deleteAtlasItem(item) {
+    if (!item?.code) return;
+    const code = String(item.code);
+    const label = `${code} ${item.name || ''}`.trim();
+    const ok = window.confirm(`${label} を図鑑一覧から削除しますか？\n監視リスト・価格キャッシュ・会社メモ・信用メモ・Atlas設定から外します。`);
+    if (!ok) return;
+    setWatch((prev) => prev.filter((w) => String(w.code) !== code));
+    setQuotes((prev) => prev.filter((q) => String(q.code) !== code));
+    setQuoteCache((prev) => { const next = { ...prev }; delete next[code]; return next; });
+    setCompanyNotes((prev) => { const next = { ...prev }; delete next[code]; return next; });
+    setCreditNotes((prev) => { const next = { ...prev }; delete next[code]; return next; });
+    setAtlasPrefs((prev) => { const next = { ...prev }; delete next[code]; return next; });
+    if (String(selected?.code) === code) setSelected(null);
+    setDataTransferMsg(`${label} を図鑑一覧から削除しました。必要ならJSON保存してください`);
+    setTimeout(() => setDataTransferMsg(''), 4200);
   }
 
   function openDetail(q, tab = 'summary') {
@@ -1207,6 +1224,7 @@ function App() {
               onMove={(item, dir) => moveAtlasItem(item.code, dir)}
               onFolderChange={(item, folder) => updateAtlasPref(item.code, { folder })}
               onAddWatch={(item) => addToWatch(item.q || item.w || { code: item.code, name: item.name, sector: item.tags || '' })}
+              onDeleteItem={deleteAtlasItem}
             />
           </div>
           {!loading && visibleAtlasItems.length === 0 && <div className="mobileEmpty">図鑑一覧に表示できる銘柄がありません。検索やフォルダ条件を変えてください。</div>}
@@ -1335,6 +1353,7 @@ function App() {
           onMove={(item, dir) => moveAtlasItem(item.code, dir)}
           onFolderChange={(item, folder) => updateAtlasPref(item.code, { folder })}
           onAddWatch={(item) => addToWatch(item.q || item.w || { code: item.code, name: item.name, sector: item.tags || '' })}
+          onDeleteItem={deleteAtlasItem}
         />
         <div className="watchlist">{watch.map((w) => (
           <div
@@ -1394,7 +1413,7 @@ function App() {
 
 
 
-function AtlasListPanel({ items, folders, folderFilter, setFolderFilter, search, setSearch, open, setOpen, onOpenItem, onTogglePin, onMove, onFolderChange, onAddWatch }) {
+function AtlasListPanel({ items, folders, folderFilter, setFolderFilter, search, setSearch, open, setOpen, onOpenItem, onTogglePin, onMove, onFolderChange, onAddWatch, onDeleteItem }) {
   const countText = `${items.length}件`;
   return <section className="atlasListPanel">
     <div className="atlasListHead">
@@ -1413,22 +1432,24 @@ function AtlasListPanel({ items, folders, folderFilter, setFolderFilter, search,
       </div>
       <div className="atlasListRows">
         {items.length === 0 && <div className="atlasEmpty">該当する図鑑メモはありません。</div>}
-        {items.map((item, idx) => <div key={item.code} className={`atlasListRow ${item.pinned ? 'pinned' : ''}`}>
+        {items.map((item, idx) => <div key={item.code} className={`atlasListRow compact ${item.pinned ? 'pinned' : ''}`}>
           <button className="pinBtn" title="一覧上部に固定" onClick={() => onTogglePin(item)}>{item.pinned ? '★' : '☆'}</button>
-          <button className="atlasMainBtn" onClick={() => onOpenItem(item)}>
+          <button className="atlasMainBtn" onClick={() => onOpenItem(item)} title="タップで図鑑カードを開く">
             <div className="atlasRowTitle"><b>{item.code}</b><span>{item.name}</span></div>
-            {item.q && <div className="atlasRowMarket"><strong>{yen(item.q.price)}</strong><em className={clsBy(item.q.changePct)}>{pct(item.q.changePct)}</em></div>}
-            <em className={`atlasFolderBadge ${atlasFolderClass(item.folder)}`}>{item.folder}</em>
-            <small>{item.progress.stars} / {item.typeLabel}</small>
-            <p>{item.snippet}</p>
+            <div className="atlasRowMeta">
+              {item.q && <span className="atlasMiniPrice"><strong>{yen(item.q.price)}</strong><em className={clsBy(item.q.changePct)}>{pct(item.q.changePct)}</em></span>}
+              <em className={`atlasFolderBadge ${atlasFolderClass(item.folder)}`}>{item.folder}</em>
+              <small>{item.progress.stars} / {item.typeLabel}</small>
+            </div>
           </button>
-          <div className="atlasRowTools">
-            <button onClick={() => onMove(item, -1)} disabled={idx === 0}>↑</button>
-            <button onClick={() => onMove(item, 1)} disabled={idx === items.length - 1}>↓</button>
-            <select value={item.folder} onChange={(e) => onFolderChange(item, e.target.value)}>
+          <div className="atlasRowTools compactTools">
+            <button onClick={() => onMove(item, -1)} disabled={idx === 0} title="上へ">↑</button>
+            <button onClick={() => onMove(item, 1)} disabled={idx === items.length - 1} title="下へ">↓</button>
+            <select value={item.folder} onChange={(e) => onFolderChange(item, e.target.value)} title="フォルダ変更">
               {ATLAS_DEFAULT_FOLDERS.map((f) => <option key={f} value={f}>{f}</option>)}
             </select>
-            {!item.watched && <button onClick={() => onAddWatch(item)}>監視+</button>}
+            {!item.watched && <button className="atlasWatchAdd" onClick={() => onAddWatch(item)}>監視+</button>}
+            <button className="atlasDeleteBtn" onClick={() => onDeleteItem?.(item)} title="削除">削除</button>
           </div>
         </div>)}
       </div>
