@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = '相場歪観測機 v58 UX24.1';
+const APP_VERSION = '相場歪観測機 v58 UX24.2';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -128,7 +128,7 @@ function mobileSortOptions(mode) {
     { label: '下落順', key: 'changePct', dir: 'asc' },
     { label: '上昇順', key: 'changePct', dir: 'desc' },
     { label: '出来高', key: 'volume', dir: 'desc' },
-    { label: 'モード点', key: mobileScoreSortKey(mode), dir: 'desc' },
+    { label: '判定点', key: mobileScoreSortKey(mode), dir: 'desc' },
     { label: 'RR', key: mobileRRSortKey(mode), dir: 'desc' },
     { label: '危険', key: mode === 'trend' ? 'trendDanger' : mode === 'bottom' ? 'bottomDanger' : 'danger', dir: 'desc' },
     { label: '歪み度', key: 'overshootScore', dir: 'desc' },
@@ -1274,7 +1274,8 @@ function MobileQuoteCard({ q, mode, selected, watched = false, companyNote, cred
       <div className="mqFoldHint"><span>{open ? '閉じる' : '開く'}</span><em>{judge} / {rrText(mainRR)}</em></div>
     </button>
     {open && <div className="mqFoldBody">
-      <div className="mqVerdicts visualVerdicts">
+      <div className="auxVerdictLabel">補助判定</div>
+      <div className="mqVerdicts visualVerdicts auxiliaryVerdicts">
         <div className={`verdictMini ${oshimeClass}`}><label>押し目</label><b>{oshimeJudge}</b></div>
         <div className={`verdictMini ${yugamiClass}`}><label>歪み</label><b>{yugamiJudge}</b></div>
         <div className={`verdictMini ${trendClassName}`}><label>順張り</label><b>{trendJudge}</b></div>
@@ -1282,7 +1283,7 @@ function MobileQuoteCard({ q, mode, selected, watched = false, companyNote, cred
       </div>
       <div className="mqMetrics compactMetrics fourMetrics">
         <div><label>観察価値</label><b>{q.stateScore ?? score ?? '—'}</b></div>
-        <div><label>モード点</label><b>{score ?? '—'}</b></div>
+        <div><label>判定点</label><b>{score ?? '—'}</b></div>
         <div className={(q.overshootScore || 0) >= 45 ? 'hotMetric' : ''}><label>歪み度</label><b>{q.overshootScore ?? '—'}</b></div>
         <div className={`dangerMetric ${dangerTone}`}><label>危険度</label><b>{danger ?? '—'}</b></div>
       </div>
@@ -1812,7 +1813,7 @@ function SummaryPanel({ q, research, ir, companyNote, creditNote, onWrite, onCre
       <div className="atlasMetricStrip">
         <Metric label="RR" value={rrText(q.predictedRR ?? q.bottomRR ?? q.trendRR)} sub={`目標 ${yen(q.rrTarget)} / 撤退 ${yen(q.rrStop || q.bottomStop)}`} strong className={rrClass(q.predictedRR ?? q.bottomRR ?? q.trendRR)} />
         <Metric label="押し目" value={yen(q.oshimePrice || q.bottomEntryPrice || q.trendEntryPrice)} sub={q.oshimeLabel || q.bottomJudge || q.trendEntryLabel || '目安'} strong />
-        <Metric label="危険" value={q.dangerScore ?? q.bottomDangerScore ?? q.trendDangerScore ?? '—'} sub={quality.dangerLabel || q.stateCaution || '補助'} />
+        <Metric label="危険度" value={q.dangerScore ?? q.bottomDangerScore ?? q.trendDangerScore ?? '—'} sub={quality.dangerLabel || q.stateCaution || '補助'} />
       </div>
     </section>
 
