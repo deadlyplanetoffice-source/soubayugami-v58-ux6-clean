@@ -3149,3 +3149,125 @@ button {
   max-height: 42vh;
   padding-bottom: 4px;
 }
+
+/* UX24.3C: mobile図鑑はAtlas Listを主画面化。旧カード一覧は非表示にし、文字を実戦サイズへ */
+.mobileAtlasListWrap {
+  margin: 12px 0 calc(96px + env(safe-area-inset-bottom, 0px));
+}
+.mobileAtlasListWrap .atlasListPanel {
+  padding: 14px;
+  border-radius: 22px;
+}
+.mobileAtlasListWrap .atlasListHead {
+  gap: 10px;
+}
+.mobileAtlasListWrap .atlasListToggle {
+  width: 42px;
+  height: 42px;
+  font-size: 19px;
+}
+.mobileAtlasListWrap .atlasListHead b {
+  font-size: 20px;
+  letter-spacing: .02em;
+}
+.mobileAtlasListWrap .atlasListHead span {
+  font-size: 14px;
+  margin-top: 4px;
+}
+.mobileAtlasListWrap .atlasListControls {
+  gap: 10px;
+  margin-top: 14px;
+}
+.mobileAtlasListWrap .atlasListControls input,
+.mobileAtlasListWrap .atlasListControls select {
+  font-size: 17px;
+  padding: 13px 14px;
+  border-radius: 16px;
+}
+.mobileAtlasListWrap .atlasFolderChips {
+  gap: 10px;
+  padding: 14px 0 8px;
+}
+.mobileAtlasListWrap .atlasFolderChips button {
+  font-size: 15px;
+  padding: 12px 16px;
+  border-radius: 999px;
+}
+.mobileAtlasListWrap .atlasListRows {
+  max-height: none;
+  gap: 12px;
+  overflow: visible;
+}
+.mobileAtlasListWrap .atlasListRow {
+  grid-template-columns: 40px 1fr;
+  gap: 10px;
+  padding: 14px 12px;
+  border-radius: 18px;
+}
+.mobileAtlasListWrap .pinBtn {
+  font-size: 30px;
+  line-height: 1;
+  padding-top: 2px;
+}
+.atlasRowTitle {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.mobileAtlasListWrap .atlasMainBtn b {
+  font-size: 23px;
+  margin-right: 0;
+}
+.mobileAtlasListWrap .atlasMainBtn span {
+  font-size: 18px;
+  line-height: 1.35;
+}
+.atlasRowMarket {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+}
+.atlasRowMarket strong {
+  font-size: 22px;
+  color: #f8fafc;
+}
+.atlasRowMarket em {
+  font-size: 19px;
+  font-style: normal;
+  font-weight: 900;
+}
+.mobileAtlasListWrap .atlasFolderBadge {
+  font-size: 13px;
+  padding: 5px 9px;
+  margin-top: 9px;
+}
+.mobileAtlasListWrap .atlasMainBtn small {
+  font-size: 15px;
+  margin-top: 7px;
+}
+.mobileAtlasListWrap .atlasMainBtn p {
+  font-size: 14px;
+  line-height: 1.55;
+  margin-top: 6px;
+}
+.mobileAtlasListWrap .atlasRowTools {
+  grid-column: 2;
+  grid-template-columns: 48px 48px 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+.mobileAtlasListWrap .atlasRowTools button,
+.mobileAtlasListWrap .atlasRowTools select {
+  min-height: 48px;
+  font-size: 16px;
+  border-radius: 14px;
+}
+.mobileAtlasListWrap .atlasRowTools button:last-child {
+  grid-column: 1 / -1;
+}
+.mobileAtlasListWrap + .mobileCards {
+  display: none;
+}

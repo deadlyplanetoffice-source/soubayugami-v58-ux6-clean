@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = '相場歪観測機 v58 UX24.3B Atlas List mobile';
+const APP_VERSION = '相場歪観測機 v58 UX24.3C Atlas List single';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -1207,8 +1207,7 @@ function App() {
               onAddWatch={(item) => addToWatch(item.q || item.w || { code: item.code, name: item.name, sector: item.tags || '' })}
             />
           </div>
-          <div className="mobileCards">{watchQuotes.map((q, idx) => <MobileQuoteCard key={q.code} q={q} mode="watch" selected={selected} watched={true} companyNote={companyNotes[String(q.code)]} creditNote={creditNotes[String(q.code)]} miniChartMode={miniChartMode} miniChartCache={miniChartCache} miniChartLoading={miniChartLoading} onToggleMiniChart={toggleMiniChart} onOpen={(tab='summary') => openDetail(q, tab)} onWatch={() => removeFromWatch(q)} orderIndex={idx} orderTotal={watchQuotes.length} onMoveUp={() => moveWatch(q, -1)} onMoveDown={() => moveWatch(q, 1)} />)}</div>
-          {!loading && watchQuotes.length === 0 && <div className="mobileEmpty">監視銘柄がありません。銘柄検索から追加してください。</div>}
+          {!loading && visibleAtlasItems.length === 0 && <div className="mobileEmpty">図鑑一覧に表示できる銘柄がありません。検索やフォルダ条件を変えてください。</div>}
         </section>}
 
         {mobileView === 'search' && <section className="mobilePage">
@@ -1415,7 +1414,8 @@ function AtlasListPanel({ items, folders, folderFilter, setFolderFilter, search,
         {items.map((item, idx) => <div key={item.code} className={`atlasListRow ${item.pinned ? 'pinned' : ''}`}>
           <button className="pinBtn" title="一覧上部に固定" onClick={() => onTogglePin(item)}>{item.pinned ? '★' : '☆'}</button>
           <button className="atlasMainBtn" onClick={() => onOpenItem(item)}>
-            <b>{item.code}</b><span>{item.name}</span>
+            <div className="atlasRowTitle"><b>{item.code}</b><span>{item.name}</span></div>
+            {item.q && <div className="atlasRowMarket"><strong>{yen(item.q.price)}</strong><em className={clsBy(item.q.changePct)}>{pct(item.q.changePct)}</em></div>}
             <em className={`atlasFolderBadge ${atlasFolderClass(item.folder)}`}>{item.folder}</em>
             <small>{item.progress.stars} / {item.typeLabel}</small>
             <p>{item.snippet}</p>
