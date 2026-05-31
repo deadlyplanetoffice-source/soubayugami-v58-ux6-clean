@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = '相場歪観測機 v58 UX24.3A Atlas List v1';
+const APP_VERSION = '相場歪観測機 v58 UX24.3B Atlas List mobile';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -1190,6 +1190,23 @@ function App() {
             </div>
           </div>
           {dataTransferMsg && <div className="mobileToast">{dataTransferMsg}</div>}
+          <div className="mobileAtlasListWrap">
+            <AtlasListPanel
+              items={visibleAtlasItems}
+              folders={atlasFolders}
+              folderFilter={atlasFolderFilter}
+              setFolderFilter={setAtlasFolderFilter}
+              search={atlasSearch}
+              setSearch={setAtlasSearch}
+              open={atlasListOpen}
+              setOpen={setAtlasListOpen}
+              onOpenItem={openAtlasItem}
+              onTogglePin={(item) => updateAtlasPref(item.code, { pinned: !item.pinned })}
+              onMove={(item, dir) => moveAtlasItem(item.code, dir)}
+              onFolderChange={(item, folder) => updateAtlasPref(item.code, { folder })}
+              onAddWatch={(item) => addToWatch(item.q || item.w || { code: item.code, name: item.name, sector: item.tags || '' })}
+            />
+          </div>
           <div className="mobileCards">{watchQuotes.map((q, idx) => <MobileQuoteCard key={q.code} q={q} mode="watch" selected={selected} watched={true} companyNote={companyNotes[String(q.code)]} creditNote={creditNotes[String(q.code)]} miniChartMode={miniChartMode} miniChartCache={miniChartCache} miniChartLoading={miniChartLoading} onToggleMiniChart={toggleMiniChart} onOpen={(tab='summary') => openDetail(q, tab)} onWatch={() => removeFromWatch(q)} orderIndex={idx} orderTotal={watchQuotes.length} onMoveUp={() => moveWatch(q, -1)} onMoveDown={() => moveWatch(q, 1)} />)}</div>
           {!loading && watchQuotes.length === 0 && <div className="mobileEmpty">監視銘柄がありません。銘柄検索から追加してください。</div>}
         </section>}

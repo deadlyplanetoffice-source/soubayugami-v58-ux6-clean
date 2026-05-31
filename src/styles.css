@@ -3103,3 +3103,49 @@ button {
   .atlasRowTools { grid-template-columns: 34px 34px 1fr; }
   .atlasRowTools button:last-child { grid-column: 1 / -1; padding: 7px; }
 }
+
+
+/* UX24.3B: mobile図鑑にもAtlas Listを表示 */
+.mobileAtlasListWrap {
+  margin: 10px 0 14px;
+}
+.mobileAtlasListWrap .atlasListPanel {
+  margin: 0;
+  border-color: rgba(125, 211, 252, .45);
+  background: rgba(15, 23, 42, .92);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.03) inset;
+}
+.mobileAtlasListWrap .atlasListHead b { color: #e5e7eb; font-size: 14px; }
+.mobileAtlasListWrap .atlasListHead span,
+.mobileAtlasListWrap .atlasMainBtn small,
+.mobileAtlasListWrap .atlasMainBtn p,
+.mobileAtlasListWrap .atlasEmpty { color: #94a3b8; }
+.mobileAtlasListWrap .atlasListToggle,
+.mobileAtlasListWrap .atlasFolderChips button,
+.mobileAtlasListWrap .atlasRowTools button,
+.mobileAtlasListWrap .atlasListControls input,
+.mobileAtlasListWrap .atlasListControls select,
+.mobileAtlasListWrap .atlasRowTools select {
+  background: rgba(2, 6, 23, .72);
+  color: #e5e7eb;
+  border-color: rgba(148, 163, 184, .36);
+}
+.mobileAtlasListWrap .atlasFolderChips button.active {
+  background: #e5e7eb;
+  color: #0f172a;
+  border-color: #e5e7eb;
+}
+.mobileAtlasListWrap .atlasListRow {
+  background: rgba(15, 23, 42, .78);
+  border-color: rgba(148, 163, 184, .28);
+}
+.mobileAtlasListWrap .atlasListRow.pinned {
+  background: rgba(69, 26, 3, .45);
+  border-color: rgba(245, 158, 11, .55);
+}
+.mobileAtlasListWrap .atlasMainBtn b,
+.mobileAtlasListWrap .atlasMainBtn span { color: #f8fafc; }
+.mobileAtlasListWrap .atlasListRows {
+  max-height: 42vh;
+  padding-bottom: 4px;
+}
