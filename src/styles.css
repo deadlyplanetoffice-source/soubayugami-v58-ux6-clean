@@ -3412,3 +3412,226 @@ button {
     grid-column: 4;
   }
 }
+
+/* UX24.3F: Atlas List is now a true compact list. Row tap opens an accordion card; delete is reduced to a small icon. */
+.atlasAccordionListPanel .atlasListHead b { font-size: 14px; }
+.atlasAccordionListPanel .atlasListHead span { font-size: 11px; }
+.compactAccordionRows { gap: 6px; }
+.atlasListRow.compactAccordion {
+  grid-template-columns: 28px 1fr;
+  gap: 7px;
+  padding: 7px 8px;
+  border-radius: 13px;
+}
+.compactPin {
+  font-size: 20px;
+  padding: 0;
+  line-height: 1.2;
+}
+.atlasCompactMain { min-width: 0; }
+.atlasCompactHead {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+.atlasCompactTitle {
+  min-width: 0;
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+}
+.atlasCompactTitle b {
+  font-family: var(--mono);
+  font-size: 15px;
+  color: inherit;
+}
+.atlasCompactTitle span {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  font-weight: 800;
+}
+.atlasCompactMarket {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  white-space: nowrap;
+}
+.atlasCompactMarket strong { font-size: 14px; }
+.atlasCompactMarket em { font-size: 13px; font-style: normal; font-weight: 900; }
+.atlasCompactMarket small { color: var(--muted); font-size: 11px; }
+.atlasCompactSub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+.atlasCompactSub span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.atlasCompactSub .atlasFolderBadge {
+  margin: 0;
+  flex: 0 0 auto;
+}
+.atlasCompactTools {
+  display: grid;
+  grid-template-columns: 34px 34px minmax(112px, 1fr) 32px;
+  gap: 5px;
+  margin-top: 6px;
+}
+.atlasCompactTools button,
+.atlasCompactTools select {
+  min-width: 0;
+  min-height: 32px;
+  border-radius: 9px;
+  border: 1px solid rgba(148, 163, 184, .35);
+  background: rgba(255,255,255,.78);
+  color: inherit;
+  font-size: 12px;
+}
+.atlasCompactTools button:disabled { opacity: .35; }
+.atlasDeleteIcon {
+  color: #ef4444 !important;
+  border-color: rgba(248, 113, 113, .32) !important;
+  background: transparent !important;
+  font-size: 18px !important;
+  line-height: 1 !important;
+  font-weight: 800;
+}
+.atlasAccordionBody {
+  margin-top: 8px;
+  padding: 9px;
+  border: 1px solid rgba(148, 163, 184, .20);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, .05);
+}
+.atlasCardMiniTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+.atlasCardMiniTop b { font-size: 13px; }
+.atlasCardMiniTop span { font-size: 11px; color: var(--muted); }
+.atlasAccordionBody p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.atlasMiniMetrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 8px;
+}
+.atlasMiniMetrics span {
+  border: 1px solid rgba(148, 163, 184, .18);
+  border-radius: 9px;
+  padding: 6px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.atlasMiniMetrics b { display: block; color: inherit; font-size: 12px; margin-top: 2px; }
+.atlasAccordionActions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+.atlasAccordionActions button {
+  min-height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, .35);
+  background: rgba(255,255,255,.8);
+  color: inherit;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.mobileAtlasListWrap .atlasAccordionListPanel {
+  padding: 8px;
+  border-radius: 16px;
+}
+.mobileAtlasListWrap .atlasAccordionListPanel .atlasListHead b { font-size: 14px; }
+.mobileAtlasListWrap .atlasAccordionListPanel .atlasListHead span { font-size: 11px; }
+.mobileAtlasListWrap .atlasListToggle { width: 32px; height: 32px; font-size: 15px; }
+.mobileAtlasListWrap .atlasListControls { gap: 7px; margin-top: 8px; }
+.mobileAtlasListWrap .atlasListControls input,
+.mobileAtlasListWrap .atlasListControls select { font-size: 14px; padding: 8px 10px; border-radius: 12px; }
+.mobileAtlasListWrap .atlasFolderChips { gap: 7px; padding: 8px 0 5px; }
+.mobileAtlasListWrap .atlasFolderChips button { font-size: 13px; padding: 7px 10px; }
+.mobileAtlasListWrap .compactAccordionRows { gap: 6px; }
+.mobileAtlasListWrap .atlasListRow.compactAccordion {
+  grid-template-columns: 28px 1fr;
+  gap: 7px;
+  padding: 8px;
+  border-radius: 14px;
+}
+.mobileAtlasListWrap .compactPin { font-size: 22px; }
+.mobileAtlasListWrap .atlasCompactTitle b { font-size: 18px; line-height: 1.1; color: #f8fafc; }
+.mobileAtlasListWrap .atlasCompactTitle span { font-size: 15px; color: #f8fafc; }
+.mobileAtlasListWrap .atlasCompactMarket strong { font-size: 16px; color: #f8fafc; }
+.mobileAtlasListWrap .atlasCompactMarket em { font-size: 15px; }
+.mobileAtlasListWrap .atlasCompactMarket small { font-size: 11px; color: #94a3b8; }
+.mobileAtlasListWrap .atlasCompactSub { font-size: 12px; color: #94a3b8; }
+.mobileAtlasListWrap .atlasCompactSub .atlasFolderBadge { font-size: 11px; padding: 3px 7px; }
+.mobileAtlasListWrap .atlasCompactTools {
+  grid-template-columns: 36px 36px minmax(120px, 1fr) 34px;
+  gap: 5px;
+  margin-top: 7px;
+}
+.mobileAtlasListWrap .atlasCompactTools button,
+.mobileAtlasListWrap .atlasCompactTools select {
+  min-height: 34px;
+  background: rgba(2, 6, 23, .72);
+  color: #e5e7eb;
+  border-color: rgba(148, 163, 184, .36);
+  font-size: 12px;
+  border-radius: 10px;
+}
+.mobileAtlasListWrap .atlasDeleteIcon {
+  background: transparent !important;
+  color: #f87171 !important;
+  border-color: rgba(248, 113, 113, .22) !important;
+  font-size: 18px !important;
+}
+.mobileAtlasListWrap .atlasAccordionBody {
+  background: rgba(2, 6, 23, .44);
+  border-color: rgba(148, 163, 184, .22);
+}
+.mobileAtlasListWrap .atlasCardMiniTop b { color: #e5e7eb; font-size: 13px; }
+.mobileAtlasListWrap .atlasCardMiniTop span,
+.mobileAtlasListWrap .atlasAccordionBody p { color: #94a3b8; }
+.mobileAtlasListWrap .atlasMiniMetrics span {
+  background: rgba(15, 23, 42, .72);
+  color: #94a3b8;
+  border-color: rgba(148, 163, 184, .20);
+}
+.mobileAtlasListWrap .atlasMiniMetrics b { color: #e5e7eb; }
+.mobileAtlasListWrap .atlasAccordionActions button {
+  background: rgba(15, 23, 42, .78);
+  color: #e5e7eb;
+  border-color: rgba(148, 163, 184, .32);
+  min-height: 36px;
+}
+@media (max-width: 390px) {
+  .mobileAtlasListWrap .atlasCompactTitle span { max-width: 145px; }
+  .mobileAtlasListWrap .atlasMiniMetrics { grid-template-columns: 1fr; }
+  .mobileAtlasListWrap .atlasAccordionActions { grid-template-columns: 1fr; }
+}

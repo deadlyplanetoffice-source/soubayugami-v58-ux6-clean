@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = 'MDO v58 / UX24.3E';
+const APP_VERSION = 'MDO v58 / UX24.3F';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -585,9 +585,9 @@ function App() {
     }));
   }
 
-  function openAtlasItem(item) {
+  function openAtlasItem(item, tab = 'summary') {
     const q = item.q || item.w || { code: item.code, name: item.name, sector: item.tags || '' };
-    openDetail({ ...q, code: item.code, name: item.name, sector: q.sector || item.tags || '' }, 'company');
+    openDetail({ ...q, code: item.code, name: item.name, sector: q.sector || item.tags || '' }, tab);
   }
 
   function deleteAtlasItem(item) {
@@ -1415,14 +1415,14 @@ function App() {
 
 function AtlasListPanel({ items, folders, folderFilter, setFolderFilter, search, setSearch, open, setOpen, onOpenItem, onTogglePin, onMove, onFolderChange, onAddWatch, onDeleteItem }) {
   const countText = `${items.length}件`;
-  return <section className="atlasListPanel">
+  return <section className="atlasListPanel atlasAccordionListPanel">
     <div className="atlasListHead">
       <button className="atlasListToggle" onClick={() => setOpen(!open)}>{open ? '▾' : '▸'}</button>
-      <div><b>Company Atlas 一覧</b><span>{countText} / カード前の整理棚</span></div>
+      <div><b>Atlas List</b><span>{countText} / タップでカード展開</span></div>
     </div>
     {open && <>
       <div className="atlasListControls">
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="図鑑検索：コード / 銘柄 / タグ / メモ" />
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="検索：コード / 銘柄 / タグ / メモ" />
         <select value={folderFilter} onChange={(e) => setFolderFilter(e.target.value)}>
           {folders.map((f) => <option key={f} value={f}>{f === 'all' ? '全フォルダ' : f}</option>)}
         </select>
@@ -1430,31 +1430,78 @@ function AtlasListPanel({ items, folders, folderFilter, setFolderFilter, search,
       <div className="atlasFolderChips">
         {folders.slice(0, 10).map((f) => <button key={f} className={folderFilter === f ? 'active' : ''} onClick={() => setFolderFilter(f)}>{f === 'all' ? '全件' : f}</button>)}
       </div>
-      <div className="atlasListRows">
+      <div className="atlasListRows compactAccordionRows">
         {items.length === 0 && <div className="atlasEmpty">該当する図鑑メモはありません。</div>}
-        {items.map((item, idx) => <div key={item.code} className={`atlasListRow compact ${item.pinned ? 'pinned' : ''}`}>
-          <button className="pinBtn" title="一覧上部に固定" onClick={() => onTogglePin(item)}>{item.pinned ? '★' : '☆'}</button>
-          <button className="atlasMainBtn" onClick={() => onOpenItem(item)} title="タップで図鑑カードを開く">
-            <div className="atlasRowTitle"><b>{item.code}</b><span>{item.name}</span></div>
-            <div className="atlasRowMeta">
-              {item.q && <span className="atlasMiniPrice"><strong>{yen(item.q.price)}</strong><em className={clsBy(item.q.changePct)}>{pct(item.q.changePct)}</em></span>}
-              <em className={`atlasFolderBadge ${atlasFolderClass(item.folder)}`}>{item.folder}</em>
-              <small>{item.progress.stars} / {item.typeLabel}</small>
-            </div>
-          </button>
-          <div className="atlasRowTools compactTools">
-            <button onClick={() => onMove(item, -1)} disabled={idx === 0} title="上へ">↑</button>
-            <button onClick={() => onMove(item, 1)} disabled={idx === items.length - 1} title="下へ">↓</button>
-            <select value={item.folder} onChange={(e) => onFolderChange(item, e.target.value)} title="フォルダ変更">
-              {ATLAS_DEFAULT_FOLDERS.map((f) => <option key={f} value={f}>{f}</option>)}
-            </select>
-            {!item.watched && <button className="atlasWatchAdd" onClick={() => onAddWatch(item)}>監視+</button>}
-            <button className="atlasDeleteBtn" onClick={() => onDeleteItem?.(item)} title="削除">削除</button>
-          </div>
-        </div>)}
+        {items.map((item, idx) => <AtlasCompactAccordionRow
+          key={item.code}
+          item={item}
+          idx={idx}
+          total={items.length}
+          onOpenItem={onOpenItem}
+          onTogglePin={onTogglePin}
+          onMove={onMove}
+          onFolderChange={onFolderChange}
+          onAddWatch={onAddWatch}
+          onDeleteItem={onDeleteItem}
+        />)}
       </div>
     </>}
   </section>;
+}
+
+function AtlasCompactAccordionRow({ item, idx, total, onOpenItem, onTogglePin, onMove, onFolderChange, onAddWatch, onDeleteItem }) {
+  const [expanded, setExpanded] = useState(false);
+  const q = item.q || null;
+  const quality = q ? buildQuality(q) : null;
+  const nextAction = quality?.nextAction || q?.primaryDecision || q?.oshimeLabel || item.typeLabel || '図鑑メモ確認';
+  const danger = q?.bottomDangerScore ?? q?.trendDangerScore ?? quality?.dangerScore ?? q?.dangerScore;
+  const dangerTone = dangerClass(danger);
+  const stop = q?.rrStop || q?.bottomStop;
+  const entry = q?.bottomEntryPrice || q?.trendEntryPrice || q?.oshimePrice;
+  const snippet = item.snippet || (item.companyNote?.raw ? String(item.companyNote.raw).slice(0, 80) : '図鑑メモ未記録');
+  return <article className={`atlasListRow compactAccordion ${item.pinned ? 'pinned' : ''} ${expanded ? 'open' : 'closed'}`}>
+    <button className="pinBtn compactPin" title="一覧上部に固定" onClick={(e) => { e.stopPropagation(); onTogglePin(item); }}>{item.pinned ? '★' : '☆'}</button>
+    <div className="atlasCompactMain">
+      <button className="atlasCompactHead" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded} title="タップでカードを開く">
+        <div className="atlasCompactTitle"><b>{item.code}</b><span>{item.name}</span></div>
+        <div className="atlasCompactMarket">
+          {q && <><strong>{yen(q.price)}</strong><em className={clsBy(q.changePct)}>{pct(q.changePct)}</em></>}
+          <small>{expanded ? '閉じる' : '開く'}</small>
+        </div>
+      </button>
+      <div className="atlasCompactSub">
+        <em className={`atlasFolderBadge ${atlasFolderClass(item.folder)}`}>{item.folder}</em>
+        <span>{item.progress.stars}</span>
+        <span>{item.typeLabel}</span>
+      </div>
+      {expanded && <div className={`atlasAccordionBody danger-${dangerTone}`}>
+        <div className="atlasCardMiniTop">
+          <b>{nextAction}</b>
+          {Number.isFinite(Number(danger)) && <span>危険度 {danger}</span>}
+        </div>
+        <p>{snippet}</p>
+        <div className="atlasMiniMetrics">
+          <span>見る価格 <b>{entry ? yen(entry) : '—'}</b></span>
+          <span>撤退警戒 <b>{stop ? yen(stop) : '—'}</b></span>
+          <span>出来高 <b>{q ? fmt(q.volumeRatio, '倍') : '—'}</b></span>
+        </div>
+        <div className="atlasAccordionActions">
+          <button onClick={() => onOpenItem(item, 'summary')}>図鑑カード</button>
+          <button onClick={() => onOpenItem(item, 'deep')}>判定</button>
+          <button onClick={() => onOpenItem(item, 'confirm')}>記録調査</button>
+          {!item.watched && <button onClick={() => onAddWatch(item)}>監視+</button>}
+        </div>
+      </div>}
+      <div className="atlasCompactTools">
+        <button onClick={() => onMove(item, -1)} disabled={idx === 0} title="上へ">↑</button>
+        <button onClick={() => onMove(item, 1)} disabled={idx === total - 1} title="下へ">↓</button>
+        <select value={item.folder} onChange={(e) => onFolderChange(item, e.target.value)} title="フォルダ変更">
+          {ATLAS_DEFAULT_FOLDERS.map((f) => <option key={f} value={f}>{f}</option>)}
+        </select>
+        <button className="atlasDeleteIcon" onClick={() => onDeleteItem?.(item)} title="削除">×</button>
+      </div>
+    </div>
+  </article>;
 }
 
 function MobileQuoteCard({ q, mode, selected, watched = false, companyNote, creditNote, miniChartMode = {}, miniChartCache = {}, miniChartLoading = {}, onToggleMiniChart, onOpen, onWatch, orderIndex = null, orderTotal = 0, onMoveUp, onMoveDown }) {
