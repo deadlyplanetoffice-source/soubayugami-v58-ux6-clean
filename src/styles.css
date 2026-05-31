@@ -3822,3 +3822,145 @@ button {
   .atlasOrderMini button{width:26px;height:26px;}
   .atlasSecondControls{grid-template-columns:1fr 64px 56px;}
 }
+
+/* UX24.3I: Atlas row refinement, folder manager, subdued bottom navigation */
+.atlasFolderManager{
+  border:1px solid rgba(148,163,184,.18);
+  border-radius:14px;
+  background:rgba(15,23,42,.34);
+  padding:7px 9px;
+  margin:2px 0 10px;
+}
+.atlasFolderManager summary{
+  cursor:pointer;
+  color:#cbd5e1;
+  font-weight:900;
+  font-size:13px;
+  list-style:none;
+}
+.atlasFolderManager summary::-webkit-details-marker{display:none;}
+.atlasFolderManagerGrid{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:7px;
+  margin-top:8px;
+}
+.atlasFolderManagerGrid input,
+.atlasFolderManagerGrid select,
+.atlasFolderManagerGrid button{
+  min-height:34px;
+  border-radius:10px;
+  border:1px solid rgba(148,163,184,.30);
+  background:rgba(2,6,23,.62);
+  color:#e5e7eb;
+  font-weight:800;
+  padding:0 9px;
+  font-size:12px;
+}
+.atlasFolderManagerGrid .dangerSubtle{
+  border-color:rgba(248,113,113,.28);
+  color:#fecaca;
+  background:rgba(127,29,29,.10);
+}
+.atlasLineOne{gap:8px!important;}
+.atlasLineTwo{gap:7px!important;}
+.atlasCodeMini,
+.atlasMarketMini,
+.atlasPctMini{
+  font-size:11px!important;
+  opacity:.86;
+}
+.atlasNameMain{
+  font-size:18px!important;
+  line-height:1.18;
+}
+.atlasTwoLineRow.open .atlasNameMain{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.atlasFolderTiny{max-width:118px;overflow:hidden;text-overflow:ellipsis;}
+.atlasStarsTiny,.atlasTypeTiny{display:none!important;}
+.atlasSecondLayerCard{padding:9px!important;}
+.atlasSecondLayerCard > p{
+  color:#a8b6c7;
+  font-size:12px;
+  line-height:1.55;
+  margin:7px 0 0;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+.atlasAccordionActions{
+  display:grid!important;
+  grid-template-columns:1fr 1fr;
+  gap:7px!important;
+}
+.atlasAccordionActions button{
+  min-height:38px!important;
+  border-radius:12px!important;
+  font-size:13px!important;
+}
+.fundamentalTrendPanel{
+  border:1px solid rgba(148,163,184,.22);
+  background:rgba(15,23,42,.58);
+  border-radius:18px;
+  padding:12px;
+}
+.fundamentalTrendNote{
+  margin-top:10px;
+  border:1px dashed rgba(148,163,184,.28);
+  border-radius:14px;
+  padding:10px;
+  color:#cbd5e1;
+  background:rgba(2,6,23,.28);
+}
+.fundamentalTrendNote b{display:block;margin-bottom:5px;color:#e5e7eb;}
+.fundamentalTrendNote p{margin:0 0 6px;line-height:1.55;color:#94a3b8;}
+
+@media (max-width:780px){
+  .mobileApp{padding-bottom:calc(68px + env(safe-area-inset-bottom))!important;}
+  .mobileTabBar,
+  .mobileBottomNav,
+  .bottomTabBar{
+    left:max(8px, env(safe-area-inset-left))!important;
+    right:max(8px, env(safe-area-inset-right))!important;
+    bottom:max(2px, env(safe-area-inset-bottom))!important;
+    gap:6px!important;
+    padding:5px!important;
+    border-radius:18px!important;
+    background:rgba(241,245,249,.76)!important;
+    border-color:rgba(148,163,184,.58)!important;
+    box-shadow:0 8px 26px rgba(0,0,0,.26)!important;
+    backdrop-filter:blur(18px) saturate(1.1)!important;
+    -webkit-backdrop-filter:blur(18px) saturate(1.1)!important;
+  }
+  .mobileTabBar button,
+  .mobileBottomNav button,
+  .bottomTabBar button{
+    min-height:38px!important;
+    border-radius:15px!important;
+    font-size:13px!important;
+    background:rgba(255,255,255,.36)!important;
+    border-color:rgba(148,163,184,.48)!important;
+    color:#0f172a!important;
+  }
+  .mobileTabBar button.active,
+  .mobileBottomNav button.active,
+  .bottomTabBar button.active{
+    background:rgba(15,23,42,.92)!important;
+    color:#f8fafc!important;
+    border-color:rgba(15,23,42,.70)!important;
+  }
+  .mobileTabBar button span,.mobileTabBar button b,
+  .mobileBottomNav button span,.mobileBottomNav button b,
+  .bottomTabBar button span,.bottomTabBar button b{
+    font-size:13px!important;
+  }
+  .mobileAtlasListWrap .atlasTwoLineCard{padding:9px 9px 8px!important;}
+  .mobileAtlasListWrap .atlasNameMain{font-size:19px!important;}
+  .mobileAtlasListWrap .atlasCodeMini,
+  .mobileAtlasListWrap .atlasMarketMini,
+  .mobileAtlasListWrap .atlasPctMini{font-size:11px!important;}
+  .mobileAtlasListWrap .atlasFolderTiny{font-size:10px!important;max-width:110px;}
+  .atlasOrderMini button{width:27px!important;height:27px!important;}
+  .atlasFolderManagerGrid{grid-template-columns:1fr 72px;}
+  .atlasFolderManagerGrid select{grid-column:1 / -1;}
+}

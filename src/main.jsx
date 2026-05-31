@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = 'MDO v58 / UX24.3H';
+const APP_VERSION = 'MDO v58 / UX24.3I';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -445,6 +445,7 @@ function App() {
   const [atlasFolderFilter, setAtlasFolderFilter] = useState(() => load('atlasFolderFilter', 'all'));
   const [atlasScope, setAtlasScope] = useState(() => load('atlasScope', 'active'));
   const [atlasListOpen, setAtlasListOpen] = useState(() => load('atlasListOpen', true));
+  const [atlasFolderConfig, setAtlasFolderConfig] = useState(() => load('atlasFolderConfig', { custom: [], hidden: [] }));
   const [clockTick, setClockTick] = useState(Date.now());
   const refreshInFlightRef = useRef(false);
   const importFileRef = useRef(null);
@@ -472,6 +473,7 @@ function App() {
   useEffect(() => save('creditBalanceNotes', creditNotes), [creditNotes]);
   useEffect(() => save('atlasPrefs', atlasPrefs), [atlasPrefs]);
   useEffect(() => save('atlasFolderFilter', atlasFolderFilter), [atlasFolderFilter]);
+  useEffect(() => save('atlasFolderConfig', atlasFolderConfig), [atlasFolderConfig]);
   useEffect(() => save('atlasScope', atlasScope), [atlasScope]);
   useEffect(() => save('atlasListOpen', atlasListOpen), [atlasListOpen]);
   useEffect(() => save('mobileLastSeen', lastSeen), [lastSeen]);
@@ -555,10 +557,16 @@ function App() {
   }, [watch, quotes, quoteCache, companyNotes, creditNotes, atlasPrefs]);
 
   const atlasFolders = useMemo(() => {
-    const set = new Set(ATLAS_DEFAULT_FOLDERS);
-    atlasItems.forEach((x) => set.add(x.folder || '未分類'));
+    const hidden = new Set((atlasFolderConfig?.hidden || []).map(String));
+    const set = new Set(ATLAS_DEFAULT_FOLDERS.filter((x) => !hidden.has(x)));
+    (atlasFolderConfig?.custom || []).forEach((x) => { if (String(x || '').trim() && !hidden.has(String(x).trim())) set.add(String(x).trim()); });
+    atlasItems.forEach((x) => {
+      const f = x.folder || '未分類';
+      // 既に銘柄が入っているフォルダは、消し忘れ防止のため一覧に残す。
+      if (!hidden.has(f) || atlasItems.some((y) => y.folder === f)) set.add(f);
+    });
     return ['all', ...Array.from(set).filter(Boolean)];
-  }, [atlasItems]);
+  }, [atlasItems, atlasFolderConfig]);
 
   const visibleAtlasItems = useMemo(() => {
     const kw = atlasSearch.trim().toLowerCase();
@@ -588,6 +596,48 @@ function App() {
       [current.code]: { ...(prev[current.code] || {}), order: target.order },
       [target.code]: { ...(prev[target.code] || {}), order: current.order },
     }));
+  }
+
+  function addAtlasFolder(name) {
+    const folder = String(name || '').trim();
+    if (!folder || folder === 'all') return;
+    setAtlasFolderConfig((prev) => {
+      const custom = Array.from(new Set([...(prev?.custom || []), folder]));
+      const hidden = (prev?.hidden || []).filter((x) => x !== folder);
+      return { custom, hidden };
+    });
+    setAtlasFolderFilter(folder);
+  }
+
+  function deleteAtlasFolder(folder) {
+    const target = String(folder || '').trim();
+    if (!target || target === 'all' || target === '未分類') return;
+    const ok = window.confirm(`${target} フォルダを削除しますか？\n中の銘柄は「未分類」へ移動します。銘柄自体は削除しません。`);
+    if (!ok) return;
+    setAtlasPrefs((prev) => {
+      const next = { ...prev };
+      atlasItems.forEach((item) => {
+        if (item.folder === target) next[item.code] = { ...(next[item.code] || {}), folder: '未分類' };
+      });
+      return next;
+    });
+    setAtlasFolderConfig((prev) => ({
+      custom: (prev?.custom || []).filter((x) => x !== target),
+      hidden: ATLAS_DEFAULT_FOLDERS.includes(target) ? Array.from(new Set([...(prev?.hidden || []), target])) : (prev?.hidden || []),
+    }));
+    if (atlasFolderFilter === target) setAtlasFolderFilter('all');
+  }
+
+  function moveVisibleAtlasItemsToFolder(folder) {
+    const target = String(folder || '').trim();
+    if (!target || target === 'all') return;
+    const ok = window.confirm(`現在表示中の ${visibleAtlasItems.length} 銘柄を「${target}」へ移動しますか？`);
+    if (!ok) return;
+    setAtlasPrefs((prev) => {
+      const next = { ...prev };
+      visibleAtlasItems.forEach((item) => { next[item.code] = { ...(next[item.code] || {}), folder: target }; });
+      return next;
+    });
   }
 
   function openAtlasItem(item, tab = 'summary') {
@@ -1232,6 +1282,9 @@ function App() {
               onFolderChange={(item, folder) => updateAtlasPref(item.code, { folder })}
               onAddWatch={(item) => addToWatch(item.q || item.w || { code: item.code, name: item.name, sector: item.tags || '' })}
               onDeleteItem={deleteAtlasItem}
+              onAddFolder={addAtlasFolder}
+              onDeleteFolder={deleteAtlasFolder}
+              onMoveVisibleToFolder={moveVisibleAtlasItemsToFolder}
             />
           </div>
           {!loading && visibleAtlasItems.length === 0 && <div className="mobileEmpty">図鑑一覧に表示できる銘柄がありません。検索やフォルダ条件を変えてください。</div>}
@@ -1363,6 +1416,9 @@ function App() {
           onFolderChange={(item, folder) => updateAtlasPref(item.code, { folder })}
           onAddWatch={(item) => addToWatch(item.q || item.w || { code: item.code, name: item.name, sector: item.tags || '' })}
           onDeleteItem={deleteAtlasItem}
+              onAddFolder={addAtlasFolder}
+              onDeleteFolder={deleteAtlasFolder}
+              onMoveVisibleToFolder={moveVisibleAtlasItemsToFolder}
         />
         <div className="watchlist">{watch.map((w) => (
           <div
@@ -1422,8 +1478,11 @@ function App() {
 
 
 
-function AtlasListPanel({ items, folders, folderFilter, setFolderFilter, scope = 'active', setScope, search, setSearch, open, setOpen, onOpenItem, onTogglePin, onMove, onFolderChange, onAddWatch, onDeleteItem }) {
+function AtlasListPanel({ items, folders, folderFilter, setFolderFilter, scope = 'active', setScope, search, setSearch, open, setOpen, onOpenItem, onTogglePin, onMove, onFolderChange, onAddWatch, onDeleteItem, onAddFolder, onDeleteFolder, onMoveVisibleToFolder }) {
   const countText = `${items.length}件`;
+  const [newFolderName, setNewFolderName] = useState('');
+  const [moveFolderName, setMoveFolderName] = useState('');
+  const usableFolders = folders.filter((f) => f !== 'all');
   return <section className="atlasListPanel atlasAccordionListPanel">
     <div className="atlasListHead">
       <button className="atlasListToggle" onClick={() => setOpen(!open)}>{open ? '▾' : '▸'}</button>
@@ -1439,6 +1498,19 @@ function AtlasListPanel({ items, folders, folderFilter, setFolderFilter, scope =
       <div className="atlasFolderChips">
         {folders.slice(0, 10).map((f) => <button key={f} className={folderFilter === f ? 'active' : ''} onClick={() => setFolderFilter(f)}>{f === 'all' ? '全件' : f}</button>)}
       </div>
+      <details className="atlasFolderManager">
+        <summary>フォルダ管理</summary>
+        <div className="atlasFolderManagerGrid">
+          <input value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} placeholder="新規フォルダ名" />
+          <button onClick={() => { onAddFolder?.(newFolderName); setNewFolderName(''); }}>追加</button>
+          <button className="dangerSubtle" onClick={() => onDeleteFolder?.(folderFilter)} disabled={folderFilter === 'all' || folderFilter === '未分類'}>表示フォルダ削除</button>
+          <select value={moveFolderName} onChange={(e) => setMoveFolderName(e.target.value)}>
+            <option value="">表示中を移動先…</option>
+            {usableFolders.map((f) => <option key={f} value={f}>{f}</option>)}
+          </select>
+          <button onClick={() => onMoveVisibleToFolder?.(moveFolderName)} disabled={!moveFolderName || items.length === 0}>表示中を移動</button>
+        </div>
+      </details>
       <div className="atlasListRows compactAccordionRows">
         {items.length === 0 && <div className="atlasEmpty">該当する図鑑メモはありません。</div>}
         {items.map((item, idx) => <AtlasCompactAccordionRow
@@ -1452,13 +1524,14 @@ function AtlasListPanel({ items, folders, folderFilter, setFolderFilter, scope =
           onFolderChange={onFolderChange}
           onAddWatch={onAddWatch}
           onDeleteItem={onDeleteItem}
+          folders={usableFolders}
         />)}
       </div>
     </>}
   </section>;
 }
 
-function AtlasCompactAccordionRow({ item, idx, total, onOpenItem, onTogglePin, onMove, onFolderChange, onAddWatch, onDeleteItem }) {
+function AtlasCompactAccordionRow({ item, idx, total, onOpenItem, onTogglePin, onMove, onFolderChange, onAddWatch, onDeleteItem, folders = ATLAS_DEFAULT_FOLDERS }) {
   const [expanded, setExpanded] = useState(false);
   const q = item.q || null;
   const quality = q ? buildQuality(q) : null;
@@ -1471,16 +1544,14 @@ function AtlasCompactAccordionRow({ item, idx, total, onOpenItem, onTogglePin, o
     <button className="atlasTwoLineCard" type="button" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded} title="タップでカードを開く">
       <div className="atlasLineOne">
         <span className="atlasPinTap" title="一覧上部に固定" onClick={(e) => { e.stopPropagation(); onTogglePin(item); }}>{item.pinned ? '★' : '☆'}</span>
-        <span className="atlasCodeMini">{item.code}</span>
         <span className={name === '名称未取得' ? 'atlasNameMain nameMissing' : 'atlasNameMain'}>{name}</span>
         <span className="atlasOpenHint">{expanded ? '閉' : '開'}</span>
       </div>
       <div className="atlasLineTwo">
+        <span className="atlasCodeMini">{item.code}</span>
         <span className="atlasMarketMini">{q ? yen(q.price) : '価格なし'}</span>
         {q && <span className={`atlasPctMini ${clsBy(q.changePct)}`}>{pct(q.changePct)}</span>}
         <span className={`atlasFolderTiny ${atlasFolderClass(item.folder)}`}>{item.folder}</span>
-        <span className="atlasStarsTiny">{item.progress.stars}</span>
-        <span className="atlasTypeTiny">{item.typeLabel}</span>
         <span className="atlasOrderMini" onClick={(e) => e.stopPropagation()}>
           <button onClick={() => onMove(item, -1)} disabled={idx === 0} title="上へ">↑</button>
           <button onClick={() => onMove(item, 1)} disabled={idx === total - 1} title="下へ">↓</button>
@@ -1490,13 +1561,13 @@ function AtlasCompactAccordionRow({ item, idx, total, onOpenItem, onTogglePin, o
     {expanded && <div className="atlasAccordionBody atlasSecondLayerCard">
       {q ? <div className="atlasAccordionSpark"><Sparkline values={chartValues} bands={chartBands} mode="day" /></div> : <p className="atlasNoQuote">価格未取得：現在の監視リスト外の図鑑メモです。</p>}
       <div className="atlasSecondSummary">
-        <b>{nextAction}</b>
-        <span>数値判断は「判定」で確認</span>
+        <b>{item.folder}</b>
+        <span>{item.progress.label}</span>
       </div>
       <p>{snippet}</p>
       <div className="atlasSecondControls">
         <select value={item.folder} onChange={(e) => onFolderChange(item, e.target.value)} title="フォルダ変更">
-          {ATLAS_DEFAULT_FOLDERS.map((f) => <option key={f} value={f}>{f}</option>)}
+          {folders.map((f) => <option key={f} value={f}>{f}</option>)}
         </select>
         {!item.watched && <button onClick={() => onAddWatch(item)}>監視+</button>}
         <button className="atlasDeleteText" onClick={() => onDeleteItem?.(item)}>削除</button>
@@ -1504,6 +1575,7 @@ function AtlasCompactAccordionRow({ item, idx, total, onOpenItem, onTogglePin, o
       <div className="atlasAccordionActions">
         <button onClick={() => onOpenItem(item, 'summary')}>図鑑カード</button>
         <button onClick={() => onOpenItem(item, 'deep')}>判定</button>
+        <button onClick={() => onOpenItem(item, 'fundamental')}>業績推移</button>
         <button onClick={() => onOpenItem(item, 'confirm')}>記録調査</button>
       </div>
     </div>}
@@ -1728,7 +1800,7 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
   const minkabu = `https://minkabu.jp/stock/${q.code}`;
   const links = { kabutan, yahoo, minkabu, news, tdnet };
   const normalizedTab = mobile
-    ? (['summary','chart','deep','confirm','links'].includes(tab) ? tab
+    ? (['summary','chart','deep','confirm','fundamental','links'].includes(tab) ? tab
       : ['company','state','bottom','trend'].includes(tab) ? 'deep'
       : ['note','credit','tech','ir','drop'].includes(tab) ? 'confirm'
       : 'summary')
@@ -1747,11 +1819,13 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
         ['summary', '図鑑'],
         ['deep', '判定'],
         ['chart', 'チャート'],
+        ['fundamental', '業績'],
         ['confirm', '記録調査'],
         ['links', 'リンク'],
       ] : [
         ['summary', '結論'],
         ['chart', 'チャート'],
+        ['fundamental', '業績'],
                 ['note', '記録調査'],
         ['credit', '信用需給'],
         ['tech', '価格/指標'],
@@ -1767,6 +1841,7 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
 
     {normalizedTab === 'summary' && <SummaryPanel q={q} research={research} ir={ir} companyNote={companyNote} creditNote={creditNote} onWrite={() => setTab('note')} onCredit={() => setTab('credit')} onDeep={() => setTab(mobile ? 'deep' : 'state')} />}
     {normalizedTab === 'chart' && <ChartPanel q={q} />}
+    {normalizedTab === 'fundamental' && <FundamentalTrendPanel q={q} />}
     {normalizedTab === 'deep' && <MobileAccordionGroup storageKey={`deep-${q.code}-${deepInitialOpen}`} initialOpenId={deepInitialOpen} intro="項目を選ぶまで中身は開きません。必要な材料だけ開いて確認します。" sections={[
       { id: 'state', title: '判定/歪み', hint: '観察価値・危険度・歪み分類', content: () => <StatePanel q={q} companyNote={companyNote} ir={ir} /> },
       { id: 'bottom', title: '試し玉', hint: '下値・反発・危険度', content: () => <BottomPanel q={q} /> },
@@ -2139,6 +2214,20 @@ function FundamentalCard({ q, compact = false }) {
       </div>
       {!compact && <p className="fundaNote">{f.note || '非公式データの参考値です。決算短信・会社IRで確認してください。'}</p>}
     </> : <p className="fundaNote">ファンダ値は未取得です。会社理解・材料/IR・確認リンクで一次情報を確認してください。</p>}
+  </section>;
+}
+
+function FundamentalTrendPanel({ q }) {
+  const f = q?.fundamental || {};
+  const hasAny = [f.sales, f.revenue, f.operatingProfit, f.netIncome, f.per, q?.per, f.pbr, q?.pbr, f.dividendYield, q?.dividendYield].some((v) => v != null && v !== '' && v !== '—');
+  return <section className="fundamentalTrendPanel">
+    <div className="cardMiniHead"><b>業績推移</b><span>{f.source || '未取得/参考'}</span></div>
+    <FundamentalCard q={q} />
+    <div className="fundamentalTrendNote">
+      <b>UX25候補</b>
+      <p>ここに会社予想・四季報予想・コンセンサス・実績進捗・前年差を並べる予定。現時点では取得済み参考値だけ表示します。</p>
+      {!hasAny && <p>業績系列データはまだ未取得です。図鑑メモや決算資料から蓄積する段階です。</p>}
+    </div>
   </section>;
 }
 
