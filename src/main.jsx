@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = '相場歪観測機 v58 UX23.8';
+const APP_VERSION = '相場歪観測機 v58 UX23.9';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -1708,6 +1708,33 @@ function refineDistortionType(q = {}, ir = null, companyNote = null) {
   return { type: 'unknown', label: '分類保留', confidence: '暫定', reasons: ['追加材料が必要'], action: 'IR・会社メモを確認' };
 }
 
+
+function isSuddenDropCandidate(q = {}) {
+  return Number(q.changePct || 0) <= -2 || Number(q.overshootScore || 0) >= 45 || Number(q.dangerScore || q.bottomDangerScore || 0) >= 70;
+}
+function DropReasonCheckPanel({ q }) {
+  if (!isSuddenDropCandidate(q)) return null;
+  const code = q?.code || '';
+  const name = q?.name || '';
+  const enc = (s) => encodeURIComponent(s);
+  const search = (word) => `https://www.google.com/search?q=${enc(`${code} ${name} ${word}`)}`;
+  return <section className="dropReasonCheckPanel">
+    <div className="dropReasonHead">
+      <b>急落理由チェック</b>
+      <span>歪みに見える下落でも、配当落ち・権利落ち・需給イベントは先に確認</span>
+    </div>
+    <div className="dropReasonGrid">
+      <a target="_blank" rel="noreferrer" href={search('配当落ち 権利落ち 優待落ち')}>配当/権利落ち</a>
+      <a target="_blank" rel="noreferrer" href="https://www.release.tdnet.info/inbs/I_main_00.html">TDnet</a>
+      <a target="_blank" rel="noreferrer" href={`https://kabutan.jp/stock/news?code=${code}`}>株探ニュース</a>
+      <a target="_blank" rel="noreferrer" href={`https://finance.yahoo.co.jp/quote/${code}.T`}>Yahoo掲示板/株価</a>
+      <a target="_blank" rel="noreferrer" href={`https://minkabu.jp/stock/${code}/bbs`}>みんかぶ掲示板</a>
+      <a target="_blank" rel="noreferrer" href={search('公募 売出 希薄化 分割 指数除外')}>需給イベント検索</a>
+    </div>
+    <p>掲示板は仮説収集用。公式IR・TDnetで確認してから歪み分類を見る。</p>
+  </section>;
+}
+
 function SummaryPanel({ q, research, ir, companyNote, creditNote, onWrite, onCredit, onDeep }) {
   const atlas = atlasProgress(companyNote, creditNote, q);
   const core = extractAtlasCore(companyNote, q?.sector ? `${q.sector}領域。図鑑メモを保存すると会社の核がここに出ます。` : '図鑑メモを保存すると会社の核がここに出ます。');
@@ -1743,6 +1770,7 @@ function SummaryPanel({ q, research, ir, companyNote, creditNote, onWrite, onCre
         <div className={`distortionTypeLine ${distortionType.type}`}><b>歪み分類：{distortionType.label}</b><span>信頼度 {distortionType.confidence} / {distortionType.action}</span></div>
         <button className="sub" onClick={onDeep}>もっと深く判定を読む →</button>
       </div>
+      <DropReasonCheckPanel q={q} />
       <button className="primary atlasCta" onClick={onWrite}>{ctaLabel}</button>
       <div className="atlasSpark"><RowSpark q={q} /></div>
       <div className="atlasDecision">
@@ -2838,6 +2866,12 @@ function ReferenceLinksPanel({ q, materials = [] }) {
     <LinkTier title="材料確認" defaultOpen>
       {news.length ? news.map((m, i) => m.url ? <a key={i} target="_blank" rel="noreferrer" href={m.url}>{m.title}</a> : <span key={i}>{m.title}</span>) : <span>直近ニュース候補は未取得</span>}
       <a target="_blank" rel="noreferrer" href={`https://www.google.com/search?q=${enc(`${code} ${name} 提携 受注 増資 決算 材料`)}`}>提携/受注/増資/決算検索</a>
+    </LinkTier>
+    <LinkTier title="急落時に見る" defaultOpen>
+      <a target="_blank" rel="noreferrer" href={`https://www.google.com/search?q=${enc(`${code} ${name} 配当落ち 権利落ち 優待落ち`)}`}>配当落ち / 権利落ち / 優待落ち</a>
+      <a target="_blank" rel="noreferrer" href={`https://finance.yahoo.co.jp/quote/${code}.T`}>Yahoo掲示板 / 株価</a>
+      <a target="_blank" rel="noreferrer" href={`https://minkabu.jp/stock/${code}/bbs`}>みんかぶ掲示板</a>
+      <a target="_blank" rel="noreferrer" href={`https://kabutan.jp/stock/news?code=${code}`}>Kabutanニュース</a>
     </LinkTier>
     <LinkTier title="株価補助">
       <a target="_blank" rel="noreferrer" href={`https://finance.yahoo.co.jp/quote/${code}.T`}>Yahoo Finance Japan</a>

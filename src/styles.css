@@ -2768,3 +2768,53 @@ button {
   border-color: rgba(115,199,255,.45) !important;
   background: rgba(15,23,42,.88) !important;
 }
+
+
+/* UX23.9 sudden drop reason check */
+.dropReasonCheckPanel {
+  margin: 10px 0 12px;
+  padding: 11px;
+  border: 1px solid rgba(250,204,21,.34);
+  border-radius: 14px;
+  background: rgba(113,63,18,.14);
+}
+.dropReasonHead {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 9px;
+}
+.dropReasonHead b {
+  color: #fde68a;
+  font-size: 14px;
+}
+.dropReasonHead span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.dropReasonGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+.dropReasonGrid a {
+  display: block;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(148,163,184,.22);
+  background: rgba(15,23,42,.45);
+  color: #dff3ff;
+  text-decoration: none;
+  font-size: 12px;
+}
+.dropReasonCheckPanel p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+@media (max-width: 780px) {
+  .dropReasonGrid {
+    grid-template-columns: 1fr;
+  }
+}
