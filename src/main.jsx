@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = '相場歪観測機 v58 UX23.9';
+const APP_VERSION = '相場歪観測機 v58 UX24';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -1735,6 +1735,37 @@ function DropReasonCheckPanel({ q }) {
   </section>;
 }
 
+
+function NextActionCard({ q }) {
+  const s = q?.pushimeStage;
+  if (!s) return null;
+  const colorClass = {
+    band_walk: 'danger',
+    fear_zone: 'caution',
+    decelerating: 'caution',
+    tentative_bottom: 'watch',
+    shallow_dip: 'positive',
+    confirmed: 'neutral',
+    rising: 'neutral'
+  }[s.stage] || 'neutral';
+
+  return <section className={`nextActionCard ${colorClass}`}>
+    <div className="naHeader">
+      <b>次の一手</b>
+      <strong>{s.action || '様子見'}</strong>
+    </div>
+    <div className="naStage">{s.label || '押し目ステージ未判定'}</div>
+    <div className="naPrices">
+      {s.watchPrice != null && <span>見る価格 {yen(s.watchPrice)}</span>}
+      {s.exitPrice != null && <span>撤退警戒 {yen(s.exitPrice)}割れ</span>}
+      {s.lotSize && <span>ロット {s.lotSize}</span>}
+    </div>
+    {!!s.conditions?.length && <ul className="naConditions">{s.conditions.map((c, i) => <li key={i}>{c}</li>)}</ul>}
+    {!!s.reasons?.length && <p className="naReasons">{s.reasons.join(' / ')}</p>}
+    <p className="naDisclaimer">※ 価格・出来高パターンのみの判定。IR・業績は未考慮。</p>
+  </section>;
+}
+
 function SummaryPanel({ q, research, ir, companyNote, creditNote, onWrite, onCredit, onDeep }) {
   const atlas = atlasProgress(companyNote, creditNote, q);
   const core = extractAtlasCore(companyNote, q?.sector ? `${q.sector}領域。図鑑メモを保存すると会社の核がここに出ます。` : '図鑑メモを保存すると会社の核がここに出ます。');
@@ -1764,6 +1795,7 @@ function SummaryPanel({ q, research, ir, companyNote, creditNote, onWrite, onCre
         <em className={clsBy(q.changePct)}>{pct(q.changePct)}</em>
         <span>出来高 {fmt(q.volume)} / {fmt(q.volumeRatio, '倍')}</span>
       </div>
+      <NextActionCard q={q} />
       <div className={`verdictBox ${verdict.action}`}>
         <strong>{verdict.headline}</strong>
         <p>根拠: 押し目={verdict.oshimeJudge} / 歪み度 {q.overshootScore ?? '—'} / 試し玉={verdict.bottomJudge} / 信頼度 {verdict.confidence}</p>

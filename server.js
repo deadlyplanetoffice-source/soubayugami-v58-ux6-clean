@@ -1653,6 +1653,138 @@ function calcOvershootScore({ z60 = null, bbPos = null, atrPct = null, closes = 
 }
 
 
+
+function calcPushimeStage({
+  price = null, closes = [], lows = [], volumes = [], bbPos = null, bbLower = null, bbMid = null, sigma = null,
+  rrStop = null, ma5 = null, ma20 = null, ma5Slope = null, ma20Slope = null, downDays5 = null,
+  volumeRatio = null, z60 = null, trendKind = null
+} = {}) {
+  const nums = (closes || []).map(Number).filter(Number.isFinite);
+  const vols = (volumes || []).map(Number).filter(Number.isFinite);
+  const p = Number(price);
+  const lower = Number(bbLower);
+  const mid = Number(bbMid);
+  const sig = Number(sigma);
+  const stop = Number(rrStop);
+  const m5 = Number(ma5);
+  const m20 = Number(ma20);
+  const pos = Number(bbPos);
+  const volRatio = Number(volumeRatio);
+  const finite = Number.isFinite;
+
+  const avgSafe = (arr) => arr.length ? avg(arr) : null;
+  const pctDropAbs = (a, b) => (finite(a) && finite(b) && a > b && a > 0) ? ((a - b) / a) * 100 : 0;
+
+  const recent5Low = nums.length >= 5 ? Math.min(...nums.slice(-5)) : null;
+  const prior10Low = nums.length >= 15 ? Math.min(...nums.slice(-15, -5)) : null;
+  const higherLow = finite(recent5Low) && finite(prior10Low) && recent5Low > prior10Low * 0.998;
+
+  const recent5Vol = vols.length >= 5 ? avgSafe(vols.slice(-5)) : null;
+  const recent20Vol = vols.length >= 20 ? avgSafe(vols.slice(-20)) : null;
+  const volDrying = (finite(recent5Vol) && finite(recent20Vol) && recent5Vol < recent20Vol * 0.75) || (finite(volRatio) && volRatio < 0.75);
+
+  let decelerating = false;
+  if (nums.length >= 6) {
+    const c = nums;
+    const last2 = pctDropAbs(c.at(-3), c.at(-2)) + pctDropAbs(c.at(-2), c.at(-1));
+    const prev2 = pctDropAbs(c.at(-5), c.at(-4)) + pctDropAbs(c.at(-4), c.at(-3));
+    decelerating = prev2 > 0 && last2 < prev2 * 0.7;
+  }
+
+  const yenOrNull = (x) => finite(x) ? yen(x) : null;
+  const exitBySigma = finite(m20) && finite(sig) ? m20 - sig * 0.5 : null;
+
+  if (finite(pos) && pos < -1.5) {
+    return {
+      stage: 'band_walk',
+      label: '下限割れ警戒',
+      action: '回避',
+      watchPrice: null,
+      exitPrice: null,
+      conditions: ['バンドウォーク化の危険。反発を確認してから改めて見る'],
+      reasons: ['BB下限を大きく割り込み', '滑落継続の可能性'],
+      lotSize: 'なし'
+    };
+  }
+
+  if (higherLow && volDrying && finite(pos) && pos < -0.5) {
+    return {
+      stage: 'tentative_bottom',
+      label: '仮着地',
+      action: '小ロット試し監視',
+      watchPrice: yenOrNull(lower),
+      exitPrice: yenOrNull(stop),
+      conditions: ['出来高落ち着き確認済み', '下値切り上げ継続を確認', 'MA5回復を待って残す'],
+      reasons: ['下値切り上げ', '出来高沈静化', '反転初動の可能性'],
+      lotSize: '通常の20-30%'
+    };
+  }
+
+  if (finite(pos) && pos < -0.5 && pos >= -1.5) {
+    return {
+      stage: 'fear_zone',
+      label: '深押し恐怖ゾーン',
+      action: '小ロット試し監視(条件付き)',
+      watchPrice: yenOrNull(lower),
+      exitPrice: yenOrNull(stop),
+      conditions: ['出来高3日連続落ち着き', '下落幅縮小傾向', '下ヒゲor揉み合い形成'],
+      reasons: ['BB下限付近', '滑落リスク高いが反転リワード大'],
+      lotSize: '通常の20-30%'
+    };
+  }
+
+  if (decelerating && finite(pos) && pos < -0.2) {
+    return {
+      stage: 'decelerating',
+      label: '落下減速',
+      action: '様子見・監視継続',
+      watchPrice: yenOrNull(lower),
+      exitPrice: null,
+      conditions: ['出来高のピーク更新なし', '下落幅が更に縮小', '下ヒゲ出現待ち'],
+      reasons: ['まだ下落中', 'ただし減速の兆候あり'],
+      lotSize: 'なし〜最小'
+    };
+  }
+
+  if (finite(ma5Slope) && ma5Slope > 0 && finite(m5) && finite(m20) && m5 > m20 && trendKind === 'recovering') {
+    return {
+      stage: 'confirmed',
+      label: '反発確認後',
+      action: '追いかけ注意',
+      watchPrice: yenOrNull(m20),
+      exitPrice: yenOrNull(exitBySigma),
+      conditions: ['次の押しまで待機', 'MA20への押しで順張り判定を確認'],
+      reasons: ['安全性は上がったがリワード低下'],
+      lotSize: '追うなら小さく'
+    };
+  }
+
+  if (finite(pos) && pos > -0.5 && pos < 0.3 && Number(ma20Slope ?? 0) >= 0) {
+    return {
+      stage: 'shallow_dip',
+      label: '浅押し監視',
+      action: '押し目買い候補',
+      watchPrice: yenOrNull(m20),
+      exitPrice: yenOrNull(exitBySigma),
+      conditions: ['MA5維持確認', '直近高値更新再開待ち'],
+      reasons: ['MA20付近の浅い押し目', '順張り継続の買い場候補'],
+      lotSize: '通常の30-50%'
+    };
+  }
+
+  return {
+    stage: 'rising',
+    label: '未到達上昇継続',
+    action: '押し目待ち',
+    watchPrice: yenOrNull(m20 || mid),
+    exitPrice: null,
+    conditions: ['MA20への押しを待つ', '現在値追いはRR悪化'],
+    reasons: ['深い押し目に届かず上昇中', '買いが強い可能性'],
+    lotSize: 'なし'
+  };
+}
+
+
 function classifyDistortionTypePhase1({ closes = [], irItems = [], fundamental = null, overshootScore = 0, price = null, changePct = null } = {}) {
   const reasons = [];
   const items = irItems || [];
@@ -2049,6 +2181,25 @@ async function fetchYahooQuote(code, options = {}) {
   const volatility = calcVolatilityContext(closes, highs, lows, price);
   const overshoot = calcOvershootScore({ ...volatility, bbPos: boll?.bbPos, atrPct: volatility?.atrPct, closes, sectorRelativeChange: null, drawdown20: bottom?.drawdown20, fundamental });
   const distortionTypeInfo = classifyDistortionTypePhase1({ closes, fundamental, overshootScore: overshoot?.overshootScore, price, changePct });
+  const pushimeStage = calcPushimeStage({
+    price,
+    closes,
+    lows,
+    volumes,
+    bbPos: boll?.bbPos,
+    bbLower: Number(boll?.bbLower),
+    bbMid: Number(boll?.bbMid),
+    sigma: Number(boll?.sigma),
+    rrStop: Number(boll?.rrStop),
+    ma5: Number(trend?.ma5),
+    ma20: Number(trend?.ma20),
+    ma5Slope: trend?.ma5Slope,
+    ma20Slope: trend?.ma20Slope,
+    downDays5: volatility?.downDays5,
+    volumeRatio: Number(vol20 ? volume / vol20 : null),
+    z60: volatility?.z60,
+    trendKind: trend?.trendKind,
+  });
   const quote = {
     code: c, symbol,
     name: jp,
@@ -2065,6 +2216,7 @@ async function fetchYahooQuote(code, options = {}) {
     ...bottom,
     ...overshoot,
     ...distortionTypeInfo,
+    pushimeStage,
     fetchedAt: new Date().toISOString(),
   };
   let creditSupply = null;

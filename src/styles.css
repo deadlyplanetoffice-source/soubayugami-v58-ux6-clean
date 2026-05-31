@@ -2818,3 +2818,85 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* UX24 next action / pushime stage */
+.nextActionCard {
+  margin: 12px 0;
+  padding: 13px;
+  border-radius: 16px;
+  border: 1px solid rgba(148,163,184,.24);
+  background: rgba(15,23,42,.45);
+}
+.nextActionCard.danger {
+  border-color: rgba(248,113,113,.52);
+  background: rgba(127,29,29,.2);
+}
+.nextActionCard.caution {
+  border-color: rgba(250,204,21,.45);
+  background: rgba(113,63,18,.16);
+}
+.nextActionCard.watch {
+  border-color: rgba(251,146,60,.48);
+  background: rgba(124,45,18,.16);
+}
+.nextActionCard.positive {
+  border-color: rgba(74,222,128,.4);
+  background: rgba(20,83,45,.15);
+}
+.nextActionCard.neutral {
+  border-color: rgba(148,163,184,.26);
+}
+.naHeader {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.naHeader b {
+  color: var(--muted);
+  font-size: 12px;
+}
+.naHeader strong {
+  font-size: 18px;
+  line-height: 1.35;
+}
+.naStage {
+  display: inline-flex;
+  width: fit-content;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.07);
+  font-size: 12px;
+  margin-bottom: 9px;
+}
+.naPrices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 6px 0 8px;
+}
+.naPrices span {
+  padding: 6px 8px;
+  border: 1px solid rgba(148,163,184,.22);
+  border-radius: 10px;
+  background: rgba(15,23,42,.38);
+  font-size: 12px;
+}
+.naConditions {
+  margin: 8px 0 8px 18px;
+  padding: 0;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.naReasons,
+.naDisclaimer {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.naDisclaimer {
+  opacity: .85;
+  font-size: 11px;
+}
