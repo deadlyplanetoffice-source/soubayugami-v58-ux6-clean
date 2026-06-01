@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = 'MDO v58 / UX24.3R';
+const APP_VERSION = 'MDO v58 / UX24.3T';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -1328,8 +1328,8 @@ function App() {
         </section>}
 
         {mobileView === 'watch' && <section className="mobilePage">
-          <div className="mobilePageHead noBack watchHead">
-            <div><h1>図鑑</h1><p>{watch.length}件 <em className={`jsonFreshness ${jsonSaveClass}`}>{jsonSaveText}</em></p></div>
+          <div className="mobilePageHead noBack watchHead compactNoTitle">
+            <div className="mobilePageCountOnly"><p>{watch.length}件 <em className={`jsonFreshness ${jsonSaveClass}`}>{jsonSaveText}</em></p></div>
             <div className="mobileHeadActions">
               <button className="smallAction" onClick={() => refresh('watch')} disabled={loading}>{loading ? '取得中' : '更新'}</button>
               <button className="smallAction saveAction" title="監視銘柄・会社調査・信用需給・条件をJSONファイルに丸ごと保存" onClick={exportLocalData}>保存</button>
@@ -2480,7 +2480,15 @@ function EarningsCompactSummary({ summary = {} }) {
     ['市場期待差', summary.expectationGap || '未抽出'],
     ['次回注目', summary.nextNumbers || '未抽出'],
   ];
-  return <div className="earningsQuickSummary">{items.map(([k, v]) => <div className="earningsQuickItem" key={k}><span>{k}</span><b>{clipText(String(v || ''), 54)}</b></div>)}</div>;
+  return <div className="earningsQuickSummary">{items.map(([k, v]) => {
+    const full = String(v || '未抽出').trim();
+    const clipped = clipText(full, 48);
+    const long = full.length > clipped.length || full.length > 54;
+    return <details className="earningsQuickItem earningsQuickDetails" key={k}>
+      <summary><span>{k}</span><b>{clipped}</b>{long && <em>詳細</em>}</summary>
+      {long && <p>{full}</p>}
+    </details>;
+  })}</div>;
 }
 
 function cleanEarningsValue(v = '') {
@@ -2531,17 +2539,67 @@ function earningsMetricJudge(metric = '', cls = '', values = []) {
 
 const EARNINGS_CARD_METRICS = ['売上高', '営業利益', '純利益', '営業利益率', 'EPS', '配当', '自己資本比率', '経常/税前'];
 
+function normalizeEarningsMetricName(name = '') {
+  const n = String(name || '').replace(/\s+/g, '').replace(/[：:]/g, '');
+  if (/売上/.test(n)) return '売上高';
+  if (/営業利益率|営業益率|営業率/.test(n)) return '営業利益率';
+  if (/営業利益|営業益/.test(n)) return '営業利益';
+  if (/経常|税引前|税前/.test(n)) return '経常/税前';
+  if (/純利益|当期利益|親会社/.test(n)) return '純利益';
+  if (/EPS|一株|1株/.test(n)) return 'EPS';
+  if (/配当/.test(n)) return '配当';
+  if (/自己資本/.test(n)) return '自己資本比率';
+  return String(name || '').trim();
+}
+
+function isPeriodLike(v = '') {
+  const s = String(v || '').trim();
+  return /20\d{2}|[1-4]Q|四半期|通期|上期|下期/.test(s);
+}
+
+function normalizeEarningsDisplayValue(v = '') {
+  return String(v || '')
+    .replace(/^会社予想$/, '—')
+    .replace(/会社予想\s*/g, '')
+    .replace(/※.*$/g, '')
+    .trim() || '—';
+}
+
 function buildEarningsMetricCards(table, limitMetrics = 7) {
   if (!table?.header?.length || !table?.body?.length) return [];
   const header = normalizeEarningsHeader(table.header);
-  const body = table.body.slice(0, 6);
+  const body = table.body.slice(0, 10);
+
+  // ケースA：項目×年度の横持ち表
+  // 例：項目 | 2023/9 | 2024/9 | 2025/9 | 2026/9予
+  // この形式を行持ち表として読むと、配当/EPSなどが列ズレするため、ここで優先処理する。
+  const firstHeader = String(header[0] || '').replace(/\s+/g, '');
+  const headerPeriods = header.slice(1).filter(isPeriodLike);
+  const looksMetricMatrix = (/項目|指標|科目/.test(firstHeader) || headerPeriods.length >= 2) && body.some((row) => EARNINGS_CARD_METRICS.includes(normalizeEarningsMetricName(row?.[0])));
+  if (looksMetricMatrix) {
+    const periods = header.slice(1).map((x) => String(x || '').trim() || '—');
+    const rows = body
+      .map((row) => ({ name: normalizeEarningsMetricName(row?.[0]), values: row.slice(1).map(normalizeEarningsDisplayValue) }))
+      .filter((x) => EARNINGS_CARD_METRICS.includes(x.name));
+    const ordered = EARNINGS_CARD_METRICS
+      .map((name) => rows.find((r) => r.name === name))
+      .filter(Boolean)
+      .slice(0, limitMetrics);
+    return ordered.map((row, idx) => {
+      const cls = earningsTrendClass(row.values);
+      const mark = cls === 'up' ? '↗' : cls === 'down' ? '↘' : cls === 'flat' ? '→' : '—';
+      return { name: row.name, idx, periods, values: row.values, cls, mark, deltas: calcEarningsDelta(row.values), judge: earningsMetricJudge(row.name, cls, row.values) };
+    });
+  }
+
+  // ケースB：期×項目の通常表
   const pIdxRaw = header.findIndex((h) => h === '期' || /期|年度|四半期/.test(String(h)));
   const pIdx = pIdxRaw >= 0 ? pIdxRaw : 0;
   const periods = body.map((row) => row[pIdx] || '—');
   const candidates = EARNINGS_CARD_METRICS.map((name) => ({ name, idx: header.findIndex((h) => h === name) })).filter((x) => x.idx >= 0);
   const extra = header.map((h, idx) => ({ name: h, idx })).filter((x) => x.idx !== pIdx && x.name && !candidates.some((c) => c.idx === x.idx));
   return [...candidates, ...extra].slice(0, limitMetrics).map(({ name, idx }) => {
-    const values = body.map((row) => row[idx] || '—');
+    const values = body.map((row) => normalizeEarningsDisplayValue(row[idx] || '—'));
     const cls = earningsTrendClass(values);
     const mark = cls === 'up' ? '↗' : cls === 'down' ? '↘' : cls === 'flat' ? '→' : '—';
     return { name, idx, periods, values, cls, mark, deltas: calcEarningsDelta(values), judge: earningsMetricJudge(name, cls, values) };

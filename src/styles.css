@@ -4654,3 +4654,72 @@ body::before{
   width:28px!important;
   height:28px!important;
 }
+
+
+/* UX24.3S: remove redundant mobile Watch/Atlas page title */
+.mobilePageHead.compactNoTitle{
+  padding-top:6px!important;
+  padding-bottom:10px!important;
+  align-items:center!important;
+}
+.mobilePageHead.compactNoTitle h1{
+  display:none!important;
+}
+.mobilePageCountOnly p{
+  margin:0!important;
+  font-size:16px!important;
+  color:#7ee7ff!important;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.mobilePageHead.compactNoTitle .mobileHeadActions{
+  align-items:center!important;
+}
+
+
+/* UX24.3T: earnings summary can expand; matrix-form earnings tables parse correctly */
+.earningsQuickItem.earningsQuickDetails{
+  padding:0!important;
+  overflow:hidden;
+}
+.earningsQuickItem.earningsQuickDetails summary{
+  list-style:none;
+  cursor:pointer;
+  padding:10px 12px;
+  display:grid;
+  grid-template-columns:88px 1fr auto;
+  gap:8px;
+  align-items:center;
+}
+.earningsQuickItem.earningsQuickDetails summary::-webkit-details-marker{display:none;}
+.earningsQuickItem.earningsQuickDetails summary span{
+  color:#7ee7ff;
+  font-size:12px;
+}
+.earningsQuickItem.earningsQuickDetails summary b{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.earningsQuickItem.earningsQuickDetails summary em{
+  color:#ffb02e;
+  font-size:11px;
+  font-style:normal;
+  border:1px solid rgba(255,176,46,.35);
+  border-radius:999px;
+  padding:2px 6px;
+}
+.earningsQuickItem.earningsQuickDetails[open] summary b{
+  white-space:normal;
+}
+.earningsQuickItem.earningsQuickDetails p{
+  margin:0;
+  padding:0 12px 12px 12px;
+  color:#d6eff8;
+  line-height:1.65;
+  font-size:14px;
+  white-space:pre-wrap;
+}
