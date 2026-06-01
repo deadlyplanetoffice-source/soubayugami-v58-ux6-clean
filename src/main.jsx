@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = 'MDO v58 / UX24.3W';
+const APP_VERSION = 'MDO v58 / UX24.3X';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -2784,7 +2784,86 @@ function MarketExpectationCardsView({ text = '' }) {
 }
 
 
+
+function yoyClass(v = '') {
+  const n = parseEarningsNumeric(v);
+  if (n == null) return 'neutral';
+  if (n > 0) return 'pos';
+  if (n < 0) return 'neg';
+  return 'flat';
+}
+
+function formatYoyChip(v = '') {
+  const s = String(v || '').trim();
+  if (!s || s === '—') return '—';
+  if (/%|％/.test(s)) return s.replace('％', '%');
+  const n = parseEarningsNumeric(s);
+  if (n == null) return s;
+  return `${n > 0 ? '+' : ''}${n.toFixed(Math.abs(n) >= 10 ? 1 : 1)}%`;
+}
+
+function QuarterYoyChipRow({ label, values = [], periods = [], kind = 'yoy' }) {
+  const recentIdx = values.length - 1;
+  const nums = values.map(parseEarningsNumeric).filter((n) => n != null);
+  const first = nums[0];
+  const last = nums[nums.length - 1];
+  const trend = nums.length >= 2 ? (last > first ? '↗' : last < first ? '↘' : '→') : '—';
+  const judge = (() => {
+    if (!nums.length) return '未判定';
+    if (kind === 'margin') {
+      if (last >= 30) return '高水準';
+      if (last >= 20) return '良好';
+      return '要確認';
+    }
+    if (last > first) return '加速';
+    if (last < first) return '鈍化';
+    return '横ばい';
+  })();
+
+  return <div className={`quarterYoyRow quarter-${kind}`}>
+    <div className="quarterYoyLabel"><b>{label}</b><span>{trend} {judge}</span></div>
+    <div className="quarterYoyChips">
+      {values.map((v, i) => <span className={`quarterYoyChip ${kind === 'margin' ? 'margin' : yoyClass(v)} ${i === recentIdx ? 'recent' : ''}`} key={`${label}-${i}`}>
+        <b>{formatYoyChip(v)}</b>
+        <em>{periods[i] || ''}</em>
+      </span>)}
+    </div>
+  </div>;
+}
+
+function QuarterYoyChipsView({ table }) {
+  const cards = buildQuarterCards(table).slice().reverse(); // 左=古い、右=最新
+  if (!cards.length) return <EarningsMetricMatrix table={table} />;
+  const tail = cards.slice(-6);
+  const periods = tail.map((c) => String(c.period || '').replace(/\s+/g, ' '));
+  const salesYoy = tail.map((c) => c.salesYoy || '—');
+  const opYoy = tail.map((c) => c.opYoy || '—');
+  const margin = tail.map((c) => c.margin || '—');
+
+  const latestSales = parseEarningsNumeric(salesYoy[salesYoy.length - 1]);
+  const latestOp = parseEarningsNumeric(opYoy[opYoy.length - 1]);
+  const latestMargin = parseEarningsNumeric(margin[margin.length - 1]);
+  const summary = [
+    latestSales != null ? (latestSales >= 0 ? '売上増収' : '売上減収') : '',
+    latestOp != null ? (latestOp >= 0 ? '営利増益' : '営利減益') : '',
+    latestMargin != null ? (latestMargin >= 30 ? '利益率高水準' : latestMargin >= 20 ? '利益率良好' : '利益率要確認') : '',
+  ].filter(Boolean).join(' / ') || '四半期YoYを確認';
+
+  return <div className="quarterYoyPanel">
+    <div className="quarterYoySummary">{summary}</div>
+    <QuarterYoyChipRow label="売上YoY" values={salesYoy} periods={periods} kind="sales" />
+    <QuarterYoyChipRow label="営利YoY" values={opYoy} periods={periods} kind="profit" />
+    <QuarterYoyChipRow label="利益率" values={margin} periods={periods} kind="margin" />
+    <details className="quarterYoyRawDetails">
+      <summary>四半期の元表を見る</summary>
+      <EarningsMetricMatrix table={table} />
+    </details>
+  </div>;
+}
+
+
 function EarningsMetricCardsView({ table, kind = 'annual' }) {
+  if (kind === 'quarter') return <QuarterYoyChipsView table={table} />;
   const cards = buildEarningsMetricCards(table, 7);
   if (!cards.length) return <EarningsMetricMatrix table={table} />;
   return <div className="earningsMetricCards">{cards.map((metric) => <EarningsMetricCard metric={metric} key={`${kind}-${metric.name}`} />)}</div>;

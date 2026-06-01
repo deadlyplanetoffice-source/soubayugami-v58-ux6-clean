@@ -4938,3 +4938,105 @@ body::before{
   line-height:1.55;
   text-align:left!important;
 }
+
+
+/* UX24.3X: quarter trend uses YoY chip rows, not tables or one-quarter cards */
+.quarterYoyPanel{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.quarterYoySummary{
+  border:1px solid rgba(0,240,255,.28);
+  background:rgba(0,240,255,.06);
+  color:#c6fbff;
+  border-radius:14px;
+  padding:10px 12px;
+  line-height:1.45;
+  font-weight:900;
+}
+.quarterYoyRow{
+  border:1px solid rgba(0,240,255,.24);
+  background:linear-gradient(135deg,rgba(0,16,25,.92),rgba(9,5,22,.82));
+  border-radius:16px;
+  padding:12px;
+}
+.quarterYoyLabel{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:10px;
+}
+.quarterYoyLabel b{
+  color:#f2fdff;
+  font-size:17px;
+}
+.quarterYoyLabel span{
+  color:#7ee7ff;
+  font-size:12px;
+  font-weight:900;
+}
+.quarterYoyChips{
+  display:flex;
+  gap:7px;
+  overflow-x:auto;
+  padding-bottom:2px;
+  -webkit-overflow-scrolling:touch;
+}
+.quarterYoyChip{
+  flex:0 0 auto;
+  min-width:64px;
+  border:1px solid rgba(120,169,186,.28);
+  background:rgba(120,169,186,.08);
+  border-radius:13px;
+  padding:7px 8px 6px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:3px;
+}
+.quarterYoyChip b{
+  font-size:14px;
+  color:#d6eff8;
+  white-space:nowrap;
+}
+.quarterYoyChip em{
+  font-style:normal;
+  font-size:10px;
+  color:#8fb8c5;
+  white-space:nowrap;
+}
+.quarterYoyChip.pos{
+  border-color:rgba(85,255,159,.34);
+  background:rgba(85,255,159,.10);
+}
+.quarterYoyChip.pos b{color:#baffd4;}
+.quarterYoyChip.neg{
+  border-color:rgba(255,77,138,.40);
+  background:rgba(255,77,138,.11);
+}
+.quarterYoyChip.neg b{color:#ffc5d8;}
+.quarterYoyChip.margin{
+  border-color:rgba(0,240,255,.30);
+  background:rgba(0,240,255,.08);
+}
+.quarterYoyChip.margin b{color:#c6fbff;}
+.quarterYoyChip.recent{
+  border-color:rgba(255,176,46,.72)!important;
+  box-shadow:0 0 18px rgba(255,176,46,.16), inset 0 0 10px rgba(255,176,46,.08);
+}
+.quarterYoyChip.recent em{
+  color:#ffe6a6;
+}
+.quarterYoyRawDetails{
+  border:1px dashed rgba(0,240,255,.22);
+  border-radius:14px;
+  padding:10px 12px;
+  color:#b8eaff;
+}
+.quarterYoyRawDetails summary{
+  cursor:pointer;
+  color:#7ee7ff;
+  font-weight:900;
+}
