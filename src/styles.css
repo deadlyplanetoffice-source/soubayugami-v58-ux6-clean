@@ -4883,3 +4883,58 @@ body::before{
   font-family:inherit;
   font-size:14px;
 }
+
+
+/* UX24.3W: quarter trend also uses metric cards; expectation cards align with metric-card style */
+.expectationMiniCards{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.expectationMiniCard{
+  border:1px solid rgba(0,240,255,.24);
+  background:linear-gradient(135deg,rgba(0,16,25,.92),rgba(9,5,22,.82));
+  border-radius:16px;
+  overflow:hidden;
+}
+.expectationMiniCard.verdict{border-color:rgba(255,176,46,.44);}
+.expectationMiniCard.company{border-color:rgba(85,255,159,.38);}
+.expectationMiniCard.market{border-color:rgba(0,240,255,.34);}
+.expectationMiniCard summary{
+  list-style:none;
+  cursor:pointer;
+  padding:12px;
+}
+.expectationMiniCard summary::-webkit-details-marker{display:none;}
+.expectationFlow{
+  display:block!important;
+  color:#7ee7ff;
+  line-height:1.5;
+  margin-top:6px;
+}
+.expectationFlow em{
+  white-space:normal!important;
+  font-style:normal;
+}
+.expectationDetail{
+  border-top:1px solid rgba(0,240,255,.18);
+  padding:8px 12px 12px;
+  display:grid;
+  gap:8px;
+}
+.expectationDetail div{
+  display:grid;
+  grid-template-columns:26px 1fr;
+  gap:8px;
+  align-items:start;
+}
+.expectationDetail span{
+  color:#7ee7ff;
+  font-size:12px;
+}
+.expectationDetail b{
+  color:#d6eff8;
+  font-weight:700;
+  line-height:1.55;
+  text-align:left!important;
+}

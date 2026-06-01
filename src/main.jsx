@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = 'MDO v58 / UX24.3V';
+const APP_VERSION = 'MDO v58 / UX24.3W';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -2751,34 +2751,40 @@ function takeExpectationLines(text = '', keys = []) {
   return picked.slice(0, 8);
 }
 
+function compactExpectationText(lines = [], max = 72) {
+  const s = lines.join(' / ').replace(/^判定\s*/g, '').trim();
+  return clipText(s || '未抽出', max);
+}
+
 function MarketExpectationCardsView({ text = '' }) {
   const raw = String(text || '').trim();
   if (!raw) return <p className="mutedText">市場期待差は未抽出です。</p>;
   const lines = raw.split('\n').map((x) => x.trim()).filter(Boolean);
-  const company = lines.filter((l) => /会社予想|修正予想|期初|修正幅|上方|下方/.test(l)).slice(0, 8);
-  const market = lines.filter((l) => /四季報|コンセンサス|IFIS|アナリスト|市場|予想|未確認/.test(l) && !company.includes(l)).slice(0, 8);
-  const judgement = lines.filter((l) => /判定|業績悪化|期待値調整|売られすぎ|強い|壊れて|失望|再評価/.test(l)).slice(0, 5);
-  const renderList = (arr, fallback) => arr.length ? arr.map((l, i) => <li key={i}>{l}</li>) : <li>{fallback}</li>;
-  return <div className="expectationCardsView">
-    <section className="expectationCard verdict">
-      <span>判定</span>
-      <ul>{renderList(judgement, '判定文は未抽出。詳細本文で確認。')}</ul>
-    </section>
-    <section className="expectationCard company">
-      <span>会社予想</span>
-      <ul>{renderList(company, '会社予想の比較は未抽出。')}</ul>
-    </section>
-    <section className="expectationCard market">
-      <span>市場期待</span>
-      <ul>{renderList(market, '四季報・コンセンサスは未確認。')}</ul>
-    </section>
+  const company = lines.filter((l) => /会社予想|修正予想|期初|修正幅|上方|下方/.test(l)).slice(0, 6);
+  const market = lines.filter((l) => /四季報|コンセンサス|IFIS|アナリスト|市場|予想|未確認/.test(l) && !company.includes(l)).slice(0, 6);
+  const judgement = lines.filter((l) => /判定|業績悪化|期待値調整|売られすぎ|強い|壊れて|失望|再評価/.test(l)).slice(0, 4);
+  const blocks = [
+    { key: 'verdict', title: '判定', mark: '↘', lines: judgement, fallback: '判定文は未抽出。詳細本文で確認。' },
+    { key: 'company', title: '会社予想', mark: '↗', lines: company, fallback: '会社予想の比較は未抽出。' },
+    { key: 'market', title: '市場期待', mark: '→', lines: market, fallback: '四季報・コンセンサスは未確認。' },
+  ];
+  return <div className="expectationMiniCards">
+    {blocks.map((b) => <details className={`expectationMiniCard ${b.key}`} key={b.key}>
+      <summary>
+        <div className="metricTop"><b>{b.title}</b><span>{b.mark}</span></div>
+        <div className="metricFlow expectationFlow"><em>{compactExpectationText(b.lines.length ? b.lines : [b.fallback], 80)}</em></div>
+        <div className="metricJudge">{b.lines.length ? '抽出あり' : '未抽出'}</div>
+      </summary>
+      <div className="metricDetail expectationDetail">
+        {(b.lines.length ? b.lines : [b.fallback]).map((l, i) => <div key={i}><span>{i + 1}</span><b>{l}</b></div>)}
+      </div>
+    </details>)}
     <details className="expectationRawDetails"><summary>詳細本文を開く</summary><pre>{raw}</pre></details>
   </div>;
 }
 
 
 function EarningsMetricCardsView({ table, kind = 'annual' }) {
-  if (kind === 'quarter') return <QuarterCardsView table={table} />;
   const cards = buildEarningsMetricCards(table, 7);
   if (!cards.length) return <EarningsMetricMatrix table={table} />;
   return <div className="earningsMetricCards">{cards.map((metric) => <EarningsMetricCard metric={metric} key={`${kind}-${metric.name}`} />)}</div>;
