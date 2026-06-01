@@ -4723,3 +4723,16 @@ body::before{
   font-size:14px;
   white-space:pre-wrap;
 }
+
+
+/* UX24.3U: stabilize earnings metric flows on mobile */
+.earningsMetricCard .metricFlow{
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.earningsMetricCard .metricFlow span{
+  min-width:0;
+}
+.earningsMetricCard .metricFlow em{
+  white-space:nowrap;
+}

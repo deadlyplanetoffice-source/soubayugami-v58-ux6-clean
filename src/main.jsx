@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = 'MDO v58 / UX24.3T';
+const APP_VERSION = 'MDO v58 / UX24.3U';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -2395,6 +2395,27 @@ function splitEarningsCells(line = '') {
     .filter(Boolean);
 }
 
+function normalizeLooseEarningsRow(cells = [], header = []) {
+  let arr = [...cells].filter(Boolean);
+  if (!arr.length) return arr;
+
+  // 2026/9 会社予想 10,800 ... の「会社予想」が列ズレを起こすため除去。
+  // 同様に会社計画・四季報・コンセンサスなどの説明セルも、期の直後なら削る。
+  if (arr.length > 2 && /20\d{2}|[1-4]Q|四半期|通期|上期|下期/.test(arr[0]) && /会社予想|会社計画|予想|四季報|コンセンサス/.test(arr[1])) {
+    arr.splice(1, 1);
+  }
+
+  // 「※2Q時点」以降や説明文が行末に連結された場合は切る。
+  const cutAt = arr.findIndex((x, i) => i > 0 && /^(※|注|ただし|数字だけ|202\d年|過去最高|ピークアウト)/.test(String(x)));
+  if (cutAt > 0) arr = arr.slice(0, cutAt);
+
+  // ヘッダー長より多い場合は、必要な列数だけに制限。
+  const need = Array.isArray(header) && header.length >= 2 ? header.length : arr.length;
+  if (arr.length > need) arr = arr.slice(0, need);
+
+  return arr;
+}
+
 function parseLooseEarningsTables(block = '', kind = 'annual') {
   const lines = String(block || '').split('\n').map((l) => l.trim()).filter(Boolean);
   if (!lines.length) return [];
@@ -2408,7 +2429,8 @@ function parseLooseEarningsTables(block = '', kind = 'annual') {
   const push = () => {
     const line = current.trim();
     if (!line) return;
-    const cells = splitEarningsCells(line);
+    const rawCells = splitEarningsCells(line);
+    const cells = normalizeLooseEarningsRow(rawCells, header);
     if (cells.length < 2) return;
     if (/^(単位|注|※|ただし|数字だけ|過去最高|ピークアウト)/.test(cells[0])) return;
     rows.push(cells.slice(0, Math.max(header.length, 2)));
@@ -2419,7 +2441,10 @@ function parseLooseEarningsTables(block = '', kind = 'annual') {
       push();
       current = line;
     } else if (current && /[0-9％%円倍]/.test(line) && !/^【/.test(line)) {
-      current += ' ' + line;
+      // 表の行が折り返された時だけ結合。説明文・判定文は行に混ぜない。
+      if (!/^(ただし|数字だけ|過去最高|ピークアウト|成長|回復|低迷|202\d年.*期は|次回|市場|会社予想|四季報|コンセンサス)/.test(line)) {
+        current += ' ' + line;
+      }
     }
   }
   push();
