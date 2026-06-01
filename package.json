@@ -1,6 +1,6 @@
 {
-  "name": "soubayugami-kansokuki-v58-ux24-3l-manual-folder-tags",
-  "version": "58.24.3-l",
+  "name": "soubayugami-kansokuki-v58-ux24-3m-earnings-trend",
+  "version": "58.24.3-m",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm:server\" \"npm:client\"",

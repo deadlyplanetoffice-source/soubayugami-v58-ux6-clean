@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = 'MDO v58 / UX24.3L';
+const APP_VERSION = 'MDO v58 / UX24.3M';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -472,6 +472,7 @@ function App() {
   const [detailTab, setDetailTab] = useState('summary');
   const [companyNotes, setCompanyNotes] = useState(() => load('companyResearchNotes', {}));
   const [creditNotes, setCreditNotes] = useState(() => load('creditBalanceNotes', {}));
+  const [earningsNotes, setEarningsNotes] = useState(() => load('earningsTrendNotes', {}));
   const [atlasPrefs, setAtlasPrefs] = useState(() => load('atlasPrefs', {}));
   const [atlasSearch, setAtlasSearch] = useState('');
   const [atlasFolderFilter, setAtlasFolderFilter] = useState(() => load('atlasFolderFilter', 'all'));
@@ -503,6 +504,7 @@ function App() {
   useEffect(() => save('sortSpec', sortSpec), [sortSpec]);
   useEffect(() => save('companyResearchNotes', companyNotes), [companyNotes]);
   useEffect(() => save('creditBalanceNotes', creditNotes), [creditNotes]);
+  useEffect(() => save('earningsTrendNotes', earningsNotes), [earningsNotes]);
   useEffect(() => save('atlasPrefs', atlasPrefs), [atlasPrefs]);
   useEffect(() => save('atlasFolderFilter', atlasFolderFilter), [atlasFolderFilter]);
   useEffect(() => save('atlasFolderConfig', atlasFolderConfig), [atlasFolderConfig]);
@@ -567,11 +569,13 @@ function App() {
     Object.keys(quoteCache || {}).forEach((code) => add(code, { q: quoteCache[code] }));
     Object.keys(companyNotes || {}).forEach((code) => add(code, { companyNote: companyNotes[code] }));
     Object.keys(creditNotes || {}).forEach((code) => add(code, { creditNote: creditNotes[code] }));
+    Object.keys(earningsNotes || {}).forEach((code) => add(code, { earningsNote: earningsNotes[code] }));
     return Array.from(byCode.values()).map((item, idx) => {
       const q = item.q || quoteCache[String(item.code)] || quotes.find((x) => String(x.code) === String(item.code)) || null;
       const w = item.watch || watch.find((x) => String(x.code) === String(item.code)) || null;
       const companyNote = item.companyNote || companyNotes[String(item.code)] || null;
       const creditNote = item.creditNote || creditNotes[String(item.code)] || null;
+      const earningsNote = item.earningsNote || earningsNotes[String(item.code)] || null;
       const pref = atlasPrefs[String(item.code)] || {};
       const rawName = pref.name || q?.name || q?.localName || w?.name || '';
       const name = rawName ? cleanName(item.code, rawName) : '';
@@ -580,15 +584,15 @@ function App() {
       const folder = legacyHoldFolder ? '未分類' : (pref.folder || atlasDefaultFolder());
       const tags = legacyHoldFolder && !prefTags.includes('保有') ? [...prefTags, '保有'] : prefTags;
       const progress = atlasProgress(companyNote, creditNote, q);
-      const updatedMs = companyNote?.updatedAt ? new Date(companyNote.updatedAt).getTime() : creditNote?.updatedAt ? new Date(creditNote.updatedAt).getTime() : 0;
+      const updatedMs = companyNote?.updatedAt ? new Date(companyNote.updatedAt).getTime() : creditNote?.updatedAt ? new Date(creditNote.updatedAt).getTime() : earningsNote?.updatedAt ? new Date(earningsNote.updatedAt).getTime() : 0;
       return {
-        code: String(item.code), name, q, w, watched: !!w, companyNote, creditNote,
+        code: String(item.code), name, q, w, watched: !!w, companyNote, creditNote, earningsNote,
         folder, pinned: !!pref.pinned, order: Number.isFinite(Number(pref.order)) ? Number(pref.order) : (w?.watchIndex ?? item.watchIndex ?? 10000 + idx),
         tags, progress, updatedMs,
         typeLabel: atlasTypeLabel(companyNote, q), snippet: atlasSnippet(companyNote),
       };
     });
-  }, [watch, quotes, quoteCache, companyNotes, creditNotes, atlasPrefs]);
+  }, [watch, quotes, quoteCache, companyNotes, creditNotes, earningsNotes, atlasPrefs]);
 
   const atlasFolders = useMemo(() => {
     const hidden = new Set((atlasFolderConfig?.hidden || []).map(String));
@@ -609,7 +613,7 @@ function App() {
       if (atlasScope === 'archive' && x.watched) return false;
       if (atlasFolderFilter !== 'all' && x.folder !== atlasFolderFilter) return false;
       if (!kw) return true;
-      return [x.code, x.name, x.folder, x.tags, x.typeLabel, x.snippet].join(' ').toLowerCase().includes(kw);
+      return [x.code, x.name, x.folder, x.tags, x.typeLabel, x.snippet, x.earningsNote?.raw].join(' ').toLowerCase().includes(kw);
     }).sort((a, b) => Number(b.pinned) - Number(a.pinned) || (a.order - b.order) || (b.updatedMs - a.updatedMs) || a.code.localeCompare(b.code, 'ja'));
   }, [atlasItems, atlasSearch, atlasFolderFilter, atlasScope]);
 
@@ -699,6 +703,7 @@ function App() {
     setQuoteCache((prev) => { const next = { ...prev }; delete next[code]; return next; });
     setCompanyNotes((prev) => { const next = { ...prev }; delete next[code]; return next; });
     setCreditNotes((prev) => { const next = { ...prev }; delete next[code]; return next; });
+    setEarningsNotes((prev) => { const next = { ...prev }; delete next[code]; return next; });
     setAtlasPrefs((prev) => { const next = { ...prev }; delete next[code]; return next; });
     if (String(selected?.code) === code) setSelected(null);
     setDataTransferMsg(`${label} を図鑑一覧から削除しました。必要ならJSON保存してください`);
@@ -768,6 +773,29 @@ function App() {
   function deleteCreditNote(code) {
     if (!code) return;
     setCreditNotes((prev) => { const next = { ...prev }; delete next[String(code)]; return next; });
+  }
+
+  function updateEarningsNote(code, patch) {
+    if (!code) return;
+    setEarningsNotes((prev) => {
+      const key = String(code);
+      const current = prev[key] || {};
+      const raw = patch && Object.prototype.hasOwnProperty.call(patch, 'raw') ? String(patch.raw || '') : String(current.raw || '');
+      const summary = extractEarningsSummary(raw);
+      const history = Array.isArray(current.history) ? current.history.slice(-7) : [];
+      if (String(current.raw || '').trim() && raw.trim() && raw !== String(current.raw || '')) {
+        history.push({ raw: current.raw, summary: current.summary || {}, savedAt: current.updatedAt || new Date().toISOString() });
+      }
+      const nextNote = { ...current, ...patch, raw, summary, history, updatedAt: new Date().toISOString(), source: patch?.source || current.source || 'self' };
+      const next = { ...prev, [key]: nextNote };
+      setTimeout(() => { setDataTransferMsg('業績推移メモを保存しました。必要なら上部の「保存」でJSONを書き出してください'); setTimeout(() => setDataTransferMsg(''), 4200); }, 0);
+      return next;
+    });
+  }
+
+  function deleteEarningsNote(code) {
+    if (!code) return;
+    setEarningsNotes((prev) => { const next = { ...prev }; delete next[String(code)]; return next; });
   }
 
   async function refresh(sourceOverride = scannerSource, codesOverride = null) {
@@ -1123,6 +1151,7 @@ function App() {
       sortSpec,
       companyResearchNotes: companyNotes,
       creditBalanceNotes: creditNotes,
+      earningsTrendNotes: earningsNotes,
       atlasPrefs,
       ...(isDebug ? {
         _debugQuotes: quotes,
@@ -1146,6 +1175,7 @@ function App() {
     if (data.sortSpec && typeof data.sortSpec === 'object') setSortSpec(data.sortSpec);
     if (data.companyResearchNotes && typeof data.companyResearchNotes === 'object') setCompanyNotes(data.companyResearchNotes);
     if (data.creditBalanceNotes && typeof data.creditBalanceNotes === 'object') setCreditNotes(data.creditBalanceNotes);
+    if (data.earningsTrendNotes && typeof data.earningsTrendNotes === 'object') setEarningsNotes(data.earningsTrendNotes);
     if (data.atlasPrefs && typeof data.atlasPrefs === 'object') setAtlasPrefs(data.atlasPrefs);
     setDataTransferMsg(message);
     setTimeout(() => setDataTransferMsg(''), 6000);
@@ -1342,7 +1372,7 @@ function App() {
 
         {mobileView === 'detail' && <section className="mobilePage">
           <div className="mobilePageHead"><button className="backBtn" onClick={() => setMobileView(mobileBackView || 'watch')}>←</button><div><h1>{selected?.code || '銘柄'} {selected?.name || ''}</h1><p>{activeMobileQuote ? `${yen(activeMobileQuote.price)} / ${pct(activeMobileQuote.changePct)}` : '詳細'}</p></div><button className="smallAction" onClick={() => selected && refresh('watch', [selected.code])}>更新</button></div>
-          {selected ? <div className="mobileDetailCard"><Detail mobile q={activeMobileQuote} selected={selected} activeTab={detailTab} setActiveTab={setDetailTab} research={research} ir={irCache[selected.code]} irLoading={irLoading} irError={irError} dropReport={dropReport?.code === selected.code ? dropReport : null} dropLoading={dropLoading} onInvestigate={() => investigateDrop(selected.code)} onReloadIr={() => { setIrCache((prev) => { const next = { ...prev }; delete next[selected.code]; return next; }); fetchIr(selected.code); }} companyNote={companyNotes[String(selected.code)]} onUpdateCompanyNote={updateCompanyNote} onDeleteCompanyNote={deleteCompanyNote} creditNote={creditNotes[String(selected.code)]} onUpdateCreditNote={updateCreditNote} onDeleteCreditNote={deleteCreditNote} onSaveAtlas={saveCurrentStateLocal} /></div> : <div className="mobileEmpty">銘柄が選択されていません。</div>}
+          {selected ? <div className="mobileDetailCard"><Detail mobile q={activeMobileQuote} selected={selected} activeTab={detailTab} setActiveTab={setDetailTab} research={research} ir={irCache[selected.code]} irLoading={irLoading} irError={irError} dropReport={dropReport?.code === selected.code ? dropReport : null} dropLoading={dropLoading} onInvestigate={() => investigateDrop(selected.code)} onReloadIr={() => { setIrCache((prev) => { const next = { ...prev }; delete next[selected.code]; return next; }); fetchIr(selected.code); }} companyNote={companyNotes[String(selected.code)]} onUpdateCompanyNote={updateCompanyNote} onDeleteCompanyNote={deleteCompanyNote} creditNote={creditNotes[String(selected.code)]} onUpdateCreditNote={updateCreditNote} onDeleteCreditNote={deleteCreditNote} earningsNote={earningsNotes[String(selected.code)]} onUpdateEarningsNote={updateEarningsNote} onDeleteEarningsNote={deleteEarningsNote} onSaveAtlas={saveCurrentStateLocal} /></div> : <div className="mobileEmpty">銘柄が選択されていません。</div>}
         </section>}
 
         {mobileView === 'settings' && <section className="mobilePage">
@@ -1510,7 +1540,7 @@ function App() {
         <div className="detailInner">
         <h2>銘柄詳細</h2>
         {!selected && <div className="empty">左の銘柄を選択してください</div>}
-        {selected && <Detail q={selectedQuote} selected={selected} activeTab={detailTab} setActiveTab={setDetailTab} research={research} ir={irCache[selected.code]} irLoading={irLoading} irError={irError} dropReport={dropReport?.code === selected.code ? dropReport : null} dropLoading={dropLoading} onInvestigate={() => investigateDrop(selected.code)} onReloadIr={() => { setIrCache((prev) => { const next = { ...prev }; delete next[selected.code]; return next; }); fetchIr(selected.code); }} companyNote={companyNotes[String(selected.code)]} onUpdateCompanyNote={updateCompanyNote} onDeleteCompanyNote={deleteCompanyNote} creditNote={creditNotes[String(selected.code)]} onUpdateCreditNote={updateCreditNote} onDeleteCreditNote={deleteCreditNote} onSaveAtlas={saveCurrentStateLocal} />}
+        {selected && <Detail q={selectedQuote} selected={selected} activeTab={detailTab} setActiveTab={setDetailTab} research={research} ir={irCache[selected.code]} irLoading={irLoading} irError={irError} dropReport={dropReport?.code === selected.code ? dropReport : null} dropLoading={dropLoading} onInvestigate={() => investigateDrop(selected.code)} onReloadIr={() => { setIrCache((prev) => { const next = { ...prev }; delete next[selected.code]; return next; }); fetchIr(selected.code); }} companyNote={companyNotes[String(selected.code)]} onUpdateCompanyNote={updateCompanyNote} onDeleteCompanyNote={deleteCompanyNote} creditNote={creditNotes[String(selected.code)]} onUpdateCreditNote={updateCreditNote} onDeleteCreditNote={deleteCreditNote} earningsNote={earningsNotes[String(selected.code)]} onUpdateEarningsNote={updateEarningsNote} onDeleteEarningsNote={deleteEarningsNote} onSaveAtlas={saveCurrentStateLocal} />}
         </div>
       </aside>
     </main>
@@ -1599,6 +1629,7 @@ function AtlasCompactAccordionRow({ item, idx, total, onOpenItem, onTogglePin, o
         {q && <span className={`atlasPctMini ${clsBy(q.changePct)}`}>{pct(q.changePct)}</span>}
         <span className={`atlasFolderTiny ${atlasFolderClass(item.folder)}`}>{item.folder}</span>
         {normalizeAtlasTags(item.tags).map((tag) => <span key={tag} className={`atlasTagTiny ${atlasTagClass(tag)}`}>{tag}</span>)}
+        {item.earningsNote?.raw && <span className="atlasTagTiny earnings">業績あり</span>}
         <span className="atlasOrderMini" onClick={(e) => e.stopPropagation()}>
           <button onClick={() => onMove(item, -1)} disabled={idx === 0} title="上へ">↑</button>
           <button onClick={() => onMove(item, 1)} disabled={idx === total - 1} title="下へ">↓</button>
@@ -1609,7 +1640,7 @@ function AtlasCompactAccordionRow({ item, idx, total, onOpenItem, onTogglePin, o
       {q ? <div className="atlasAccordionSpark"><Sparkline values={chartValues} bands={chartBands} mode="day" /></div> : <p className="atlasNoQuote">価格未取得：現在の監視リスト外の図鑑メモです。</p>}
       <div className="atlasSecondSummary">
         <b>{item.folder}</b>
-        <span>{item.progress.label}</span>
+        <span>{item.progress.label}</span>{item.earningsNote?.raw && <span className="earningsMiniStatus">業績メモあり</span>}
       </div>
       <p>{snippet}</p>
       <div className="atlasSecondControls atlasTagControls">
@@ -1827,7 +1858,7 @@ function SafePanel({ children }) {
   return <PanelErrorBoundary>{children}</PanelErrorBoundary>;
 }
 
-function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading, irError, dropReport, dropLoading, onInvestigate, onReloadIr, companyNote, onUpdateCompanyNote, onDeleteCompanyNote, creditNote, onUpdateCreditNote, onDeleteCreditNote, onSaveAtlas, mobile = false }) {
+function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading, irError, dropReport, dropLoading, onInvestigate, onReloadIr, companyNote, onUpdateCompanyNote, onDeleteCompanyNote, creditNote, onUpdateCreditNote, onDeleteCreditNote, earningsNote, onUpdateEarningsNote, onDeleteEarningsNote, onSaveAtlas, mobile = false }) {
   const tab = activeTab || 'summary';
   const detailTopRef = useRef(null);
   const setTab = (next) => {
@@ -1889,7 +1920,7 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
 
     {normalizedTab === 'summary' && <SummaryPanel q={q} research={research} ir={ir} companyNote={companyNote} creditNote={creditNote} onWrite={() => setTab('note')} onCredit={() => setTab('credit')} onDeep={() => setTab(mobile ? 'deep' : 'state')} />}
     {normalizedTab === 'chart' && <ChartPanel q={q} />}
-    {normalizedTab === 'fundamental' && <FundamentalTrendPanel q={q} />}
+    {normalizedTab === 'fundamental' && <FundamentalTrendPanel q={q} note={earningsNote} onSave={(patch) => onUpdateEarningsNote?.(q.code, patch)} onDelete={() => onDeleteEarningsNote?.(q.code)} onSaveAtlas={onSaveAtlas} />}
     {normalizedTab === 'deep' && <MobileAccordionGroup storageKey={`deep-${q.code}-${deepInitialOpen}`} initialOpenId={deepInitialOpen} intro="項目を選ぶまで中身は開きません。必要な材料だけ開いて確認します。" sections={[
       { id: 'state', title: '判定/歪み', hint: '観察価値・危険度・歪み分類', content: () => <StatePanel q={q} companyNote={companyNote} ir={ir} /> },
       { id: 'bottom', title: '試し玉', hint: '下値・反発・危険度', content: () => <BottomPanel q={q} /> },
@@ -2265,17 +2296,196 @@ function FundamentalCard({ q, compact = false }) {
   </section>;
 }
 
-function FundamentalTrendPanel({ q }) {
+function getSectionText(raw = '', names = []) {
+  const sections = extractSections(raw);
+  const keys = Object.keys(sections || {});
+  const hit = keys.find((k) => names.some((name) => String(k).includes(name)));
+  return hit ? String(sections[hit] || '').trim() : '';
+}
+
+function extractFieldFromBlock(block = '', label = '') {
+  const re = new RegExp(`${label}\\s*[:：]\\s*([^\\n]+)`);
+  const m = String(block || '').match(re);
+  return m ? m[1].trim() : '';
+}
+
+function extractEarningsSummary(raw = '') {
+  const text = String(raw || '').trim();
+  if (!text) return {};
+  const save = getSectionText(text, ['MDO保存用サマリー']);
+  const positionBlock = getSectionText(text, ['過去2〜3年の業績位置', '過去2～3年の業績位置', '業績位置']);
+  const progressBlock = getSectionText(text, ['進捗率', '通期予想と進捗率']);
+  const expectationBlock = getSectionText(text, ['市場期待差']);
+  const nextBlock = getSectionText(text, ['次の決算で見る数字', '次回決算で見る数字']);
+  const uncheckedBlock = getSectionText(text, ['未確認事項']);
+  const field = (label) => extractFieldFromBlock(save, label);
+  const compact = (v, n = 180) => {
+    const one = String(v || '').replace(/\s+/g, ' ').trim();
+    return one.length > n ? `${one.slice(0, n)}…` : one;
+  };
+  return {
+    position: field('業績位置') || compact(positionBlock, 120),
+    progress: field('進捗評価') || compact(progressBlock, 140),
+    expectationGap: field('市場期待差') || compact(expectationBlock, 160),
+    nextNumbers: field('次回決算の注目数字') || field('次の決算の注目数字') || compact(nextBlock, 180),
+    broken: field('業績は壊れているか') || '',
+    oshimeUse: field('押し目判断に使えるか') || '',
+    unchecked: field('未確認事項') || compact(uncheckedBlock, 140),
+    hasSaveSummary: !!save,
+  };
+}
+
+function buildEarningsPrompt(q = {}) {
+  return `この日本株について、過去2〜3年の業績推移と市場期待差を、数字中心で調査してください。
+
+【対象銘柄】
+コード：${q.code || ''}
+銘柄名：${q.name || ''}
+
+【目的】
+株価下落・急騰・押し目判定の前提として、業績の数字だけを確認します。
+
+確認したいのは以下です。
+
+・業績が本当に悪化しているのか
+・過去2〜3年で見て回復中なのか
+・高水準からの期待値調整なのか
+・会社予想に対して進捗は順調なのか
+・市場期待を上回る余地があるのか
+
+会社概要、事業内容、信用需給、ワラント、ニュース反応、掲示板反応は不要です。
+必要なのは、業績推移が見える数字と、その数字から見た状態判定です。
+
+【確認する数字】
+
+1. 過去2〜3年の通期業績
+・売上高
+・営業利益
+・経常利益または税引前利益
+・純利益
+・営業利益率
+・EPS
+・配当
+・自己資本比率
+
+2. 直近4〜8四半期の業績推移
+・売上高
+・営業利益
+・経常利益または税引前利益
+・純利益
+・営業利益率
+・前年同期比
+・四半期ごとの増減傾向
+
+3. 通期予想と進捗率
+・会社通期予想
+・現在までの進捗率
+・前年同期進捗率
+・進捗が順調か、遅れているか、上振れ余地があるか
+
+4. 市場期待との差
+・四季報予想
+・コンセンサス予想
+・会社予想との差
+・実績進捗との差
+・株価反応が、業績悪化によるものか、期待値が高すぎた反動か
+
+5. 次の決算で見る数字
+・売上高
+・営業利益
+・営業利益率
+・EPS
+・進捗率
+・必要に応じて業種別KPI
+  例：受注、契約、ARR、稼働率、販売数量、単価、在庫、粗利率など
+
+【出力形式】
+
+【過去2〜3年の業績位置】
+成長中 / 回復中 / 高水準維持 / ピークアウト / 低迷継続 のどれに近いか。
+
+【通期業績推移】
+過去2〜3年の売上高・営業利益・経常利益/税引前利益・純利益・営業利益率・EPS・配当・自己資本比率を表で整理。
+
+【直近四半期推移】
+直近4〜8四半期の売上高・営業利益・経常利益/税引前利益・純利益・営業利益率・前年同期比を表で整理。
+
+【進捗率】
+会社予想に対する進捗率、前年同期進捗率、順調/遅れ/上振れ余地を整理。
+
+【市場期待差】
+会社予想、四季報予想、コンセンサス予想、実績進捗を比較し、期待値調整なのか業績悪化なのかを整理。
+
+【次の決算で見る数字】
+次回決算で確認すべき具体的な数値ラインを示す。
+
+【MDO保存用サマリー】
+業績位置：
+進捗評価：
+市場期待差：
+次回決算の注目数字：
+業績は壊れているか：
+押し目判断に使えるか：
+未確認事項：`;
+}
+
+function EarningsSummaryBox({ summary = {} }) {
+  const rows = [
+    ['業績位置', summary.position],
+    ['進捗評価', summary.progress],
+    ['市場期待差', summary.expectationGap],
+    ['次回決算', summary.nextNumbers],
+    ['壊れているか', summary.broken],
+    ['押し目利用', summary.oshimeUse],
+    ['未確認', summary.unchecked],
+  ].filter(([, v]) => String(v || '').trim());
+  if (!rows.length) return <div className="earningsSummary empty"><b>MDO抽出サマリー</b><p>貼り付け本文を保存すると、【MDO保存用サマリー】または見出しから要点を抽出します。</p></div>;
+  return <div className="earningsSummary"><div className="cardMiniHead"><b>MDO抽出サマリー</b><span>{summary.hasSaveSummary ? '保存用サマリー優先' : '見出し抽出'}</span></div>{rows.map(([k, v]) => <div className="earningsSummaryRow" key={k}><span>{k}</span><p>{v}</p></div>)}</div>;
+}
+
+function FundamentalTrendPanel({ q, note, onSave, onDelete, onSaveAtlas }) {
   const f = q?.fundamental || {};
+  const [raw, setRaw] = useState(() => String(note?.raw || ''));
+  const [copied, setCopied] = useState(false);
+  const [saved, setSaved] = useState(false);
+  useEffect(() => { setRaw(String(note?.raw || '')); }, [q?.code, note?.updatedAt]);
+  const prompt = useMemo(() => buildEarningsPrompt(q), [q?.code, q?.name]);
+  const summary = useMemo(() => extractEarningsSummary(raw || note?.raw || ''), [raw, note?.updatedAt]);
   const hasAny = [f.sales, f.revenue, f.operatingProfit, f.netIncome, f.per, q?.per, f.pbr, q?.pbr, f.dividendYield, q?.dividendYield].some((v) => v != null && v !== '' && v !== '—');
-  return <section className="fundamentalTrendPanel">
-    <div className="cardMiniHead"><b>業績推移</b><span>{f.source || '未取得/参考'}</span></div>
+  async function copyPrompt() {
+    try { await navigator.clipboard.writeText(prompt); setCopied(true); setTimeout(() => setCopied(false), 1200); }
+    catch { setCopied(false); }
+  }
+  function saveNow() {
+    const text = String(raw || '').trim();
+    onSave?.({ raw: text });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1200);
+  }
+  return <section className="fundamentalTrendPanel earningsTrendPage">
+    <div className="cardMiniHead"><b>業績推移</b><span>{note?.updatedAt ? `保存 ${String(note.updatedAt).slice(0,10)}` : '未保存'}</span></div>
     <FundamentalCard q={q} />
     <div className="fundamentalTrendNote">
-      <b>UX25候補</b>
-      <p>ここに会社予想・四季報予想・コンセンサス・実績進捗・前年差を並べる予定。現時点では取得済み参考値だけ表示します。</p>
-      {!hasAny && <p>業績系列データはまだ未取得です。図鑑メモや決算資料から蓄積する段階です。</p>}
+      <b>UX24.3M：貼り付け抽出型</b>
+      <p>自動取得ではなく、調査プロンプトで自分が確認した数字を貼り付け、MDO用サマリーを抽出します。</p>
+      {!hasAny && <p>参考ファンダ値は未取得です。業績系列は下の貼り付け欄に保存します。</p>}
     </div>
+    <EarningsSummaryBox summary={summary} />
+    <details className="earningsPromptBox">
+      <summary>業績調査プロンプト</summary>
+      <textarea readOnly value={prompt} />
+      <button className="primary" onClick={copyPrompt}>{copied ? 'コピー済み' : 'プロンプトをコピー'}</button>
+    </details>
+    <div className="earningsPasteBox">
+      <div className="cardMiniHead"><b>調査結果貼り付け</b><span>会社・信用調査とは別保存</span></div>
+      <textarea value={raw} onChange={(e) => setRaw(e.target.value)} placeholder="調査結果をここに貼り付け。特に【MDO保存用サマリー】があると抽出精度が上がります。" />
+      <div className="earningsActions">
+        <button className="primary" onClick={saveNow}>{saved ? '保存済み' : '業績メモ保存'}</button>
+        {onSaveAtlas && <button className="sub" onClick={onSaveAtlas}>JSON保存</button>}
+        {note?.raw && <button className="dangerSubtle" onClick={() => { if (window.confirm('この銘柄の業績推移メモを削除しますか？')) { onDelete?.(); setRaw(''); } }}>業績メモ削除</button>}
+      </div>
+    </div>
+    {Array.isArray(note?.history) && note.history.length > 0 && <details className="earningsHistory"><summary>過去保存 {note.history.length}件</summary>{note.history.slice().reverse().map((h, i) => <div className="historyRow" key={i}><span>{String(h.savedAt || '').slice(0,10) || '—'}</span><span>{clipText(String(h.raw || '').replace(/\s+/g, ' '), 120)}</span></div>)}</details>}
   </section>;
 }
 
