@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = 'MDO v58 / UX24.3O';
+const APP_VERSION = 'MDO v58 / UX24.3P';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -2355,8 +2355,69 @@ function parseMarkdownTables(block = '') {
       .filter((cells) => cells.length >= 2 && !cells.every((c) => /^:?-{2,}:?$/.test(c)));
     const header = cleanRows[0] || [];
     const body = cleanRows.slice(1).filter((cells) => !cells.every((c) => /^:?-{2,}:?$/.test(c)));
-    return { header, body };
+    return { header, body, source: 'markdown' };
   }).filter((t) => t.header.length && t.body.length);
+}
+
+const EARNINGS_ANNUAL_HEADER = ['期', '売上高', '営業利益', '経常/税前', '純利益', '営業利益率', 'EPS', '配当', '自己資本比率'];
+const EARNINGS_QUARTER_HEADER = ['期', '売上高', '営業利益', '経常/税前', '純利益', '営業利益率', '前年比'];
+
+function normalizeEarningsHeader(cells = []) {
+  return cells.map((cell) => {
+    const c = String(cell || '').replace(/\s+/g, '');
+    if (/^期$|年度|四半期|年月|決算期/.test(c)) return '期';
+    if (/売上/.test(c)) return '売上高';
+    if (/営業利益率|営業益率|営業率/.test(c)) return '営業利益率';
+    if (/営業利益|営業益/.test(c)) return '営業利益';
+    if (/経常|税引前|税前/.test(c)) return '経常/税前';
+    if (/純利益|当期利益|親会社/.test(c)) return '純利益';
+    if (/EPS|一株|1株/.test(c)) return 'EPS';
+    if (/配当/.test(c)) return '配当';
+    if (/自己資本/.test(c)) return '自己資本比率';
+    if (/前年|YoY|前年比/.test(c)) return '前年比';
+    if (/進捗/.test(c)) return '進捗率';
+    return cell;
+  });
+}
+
+function splitEarningsCells(line = '') {
+  return String(line || '')
+    .replace(/[｜|]/g, ' ')
+    .replace(/：/g, ':')
+    .split(/\s+/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+
+function parseLooseEarningsTables(block = '', kind = 'annual') {
+  const lines = String(block || '').split('\n').map((l) => l.trim()).filter(Boolean);
+  if (!lines.length) return [];
+  const headerLine = lines.find((line) => /(期|年度|四半期).*(売上|営業利益|純利益|EPS|配当)/.test(line));
+  const header = headerLine ? normalizeEarningsHeader(splitEarningsCells(headerLine)) : (kind === 'quarter' ? EARNINGS_QUARTER_HEADER : EARNINGS_ANNUAL_HEADER);
+  const rowStart = kind === 'quarter'
+    ? /^(20\d{2}[\/.年-]?\s*)?(?:[1-4]Q|Q[1-4]|第[1-4]四半期|[1-4]四半期|通期|上期|下期|累計)/i
+    : /^(20\d{2}[\/.年-]?\d{0,2}|20\d{2}年?\d{0,2}月?期|20\d{2}\s*\/\s*\d{1,2}|20\d{2}\s*予|20\d{2}.*会社予想)/;
+  const rows = [];
+  let current = '';
+  const push = () => {
+    const line = current.trim();
+    if (!line) return;
+    const cells = splitEarningsCells(line);
+    if (cells.length < 2) return;
+    if (/^(単位|注|※|ただし|数字だけ|過去最高|ピークアウト)/.test(cells[0])) return;
+    rows.push(cells.slice(0, Math.max(header.length, 2)));
+  };
+  for (const line of lines) {
+    if (line === headerLine || /^[-|: ]+$/.test(line) || /^単位/.test(line)) continue;
+    if (rowStart.test(line)) {
+      push();
+      current = line;
+    } else if (current && /[0-9％%円倍]/.test(line) && !/^【/.test(line)) {
+      current += ' ' + line;
+    }
+  }
+  push();
+  return rows.length ? [{ header, body: rows, source: 'loose' }] : [];
 }
 
 function extractEarningsNumberSections(raw = '') {
@@ -2367,25 +2428,71 @@ function extractEarningsNumberSections(raw = '') {
     { key: 'quarter', title: '直近四半期推移', hint: '4〜8四半期の売上・利益・利益率・前年比', body: pick(['直近四半期推移', '直近4〜8四半期', '四半期推移']) },
     { key: 'progress', title: '進捗率', hint: '会社予想に対する進捗・前年同期進捗・上振れ余地', body: pick(['進捗率', '通期予想と進捗率']) },
     { key: 'expectation', title: '市場期待差', hint: '会社予想・四季報・コンセンサス・実績進捗との差', body: pick(['市場期待差']) },
-  ].map((sec) => ({ ...sec, tables: parseMarkdownTables(sec.body) }));
+  ].map((sec) => {
+    const md = parseMarkdownTables(sec.body);
+    const loose = md.length ? [] : parseLooseEarningsTables(sec.body, sec.key === 'quarter' ? 'quarter' : 'annual');
+    return { ...sec, tables: md.length ? md : loose };
+  });
+}
+
+function earningsTrendClass(values = []) {
+  const nums = values.map((v) => Number(String(v || '').replace(/[,円%倍約前後\s]/g, ''))).filter((n) => Number.isFinite(n));
+  if (nums.length < 2) return '';
+  const first = nums[0], last = nums[nums.length - 1];
+  if (last > first * 1.03) return 'up';
+  if (last < first * 0.97) return 'down';
+  return 'flat';
 }
 
 function EarningsNumberTable({ table }) {
   if (!table?.header?.length || !table?.body?.length) return null;
-  return <div className="earningsTableWrap"><table className="earningsNumberTable"><thead><tr>{table.header.map((h, i) => <th key={i}>{h}</th>)}</tr></thead><tbody>{table.body.slice(0, 12).map((row, r) => <tr key={r}>{table.header.map((_, i) => <td key={i}>{row[i] || ''}</td>)}</tr>)}</tbody></table></div>;
+  const header = normalizeEarningsHeader(table.header);
+  return <div className="earningsTableWrap"><table className="earningsNumberTable"><thead><tr>{header.map((h, i) => <th key={i}>{h}</th>)}</tr></thead><tbody>{table.body.slice(0, 12).map((row, r) => <tr key={r}>{header.map((_, i) => <td key={i}>{row[i] || ''}</td>)}</tr>)}</tbody></table></div>;
 }
 
-function EarningsNumbersView({ raw = '' }) {
+function EarningsMetricMatrix({ table }) {
+  if (!table?.header?.length || !table?.body?.length) return <EarningsNumberTable table={table} />;
+  const header = normalizeEarningsHeader(table.header);
+  const body = table.body.slice(0, 6);
+  const periodIdx = header.findIndex((h) => h === '期' || /期|年度|四半期/.test(String(h)));
+  const pIdx = periodIdx >= 0 ? periodIdx : 0;
+  const periods = body.map((row) => row[pIdx] || '—');
+  const metrics = header.map((h, i) => ({ h, i })).filter(({ h, i }) => i !== pIdx && String(h || '').trim()).slice(0, 8);
+  if (!metrics.length || !periods.length) return <EarningsNumberTable table={{ ...table, header }} />;
+  return <div className="earningsMatrixWrap"><table className="earningsMatrix"><thead><tr><th>項目</th>{periods.map((p, i) => <th key={i}>{p}</th>)}<th>変化</th></tr></thead><tbody>{metrics.map(({ h, i }) => {
+    const vals = body.map((row) => row[i] || '—');
+    const cls = earningsTrendClass(vals);
+    const mark = cls === 'up' ? '↗' : cls === 'down' ? '↘' : cls === 'flat' ? '→' : '—';
+    return <tr key={`${h}-${i}`} className={cls ? `trend-${cls}` : ''}><td>{h}</td>{vals.map((v, j) => <td key={j}>{v}</td>)}<td className="trendMark">{mark}</td></tr>;
+  })}</tbody></table></div>;
+}
+
+function EarningsCompactSummary({ summary = {} }) {
+  const items = [
+    ['業績位置', summary.position || '未抽出'],
+    ['進捗評価', summary.progress || '未抽出'],
+    ['市場期待差', summary.expectationGap || '未抽出'],
+    ['次回注目', summary.nextNumbers || '未抽出'],
+  ];
+  return <div className="earningsQuickSummary">{items.map(([k, v]) => <div className="earningsQuickItem" key={k}><span>{k}</span><b>{clipText(String(v || ''), 54)}</b></div>)}</div>;
+}
+
+function EarningsNumbersView({ raw = '', summary = {} }) {
   const sections = extractEarningsNumberSections(raw);
   const hasAny = sections.some((sec) => String(sec.body || '').trim());
   if (!hasAny) {
-    return <div className="earningsNumbers empty"><div className="smallTitle">数字の変化</div><p>調査結果を貼り付けると、【通期業績推移】【直近四半期推移】【進捗率】【市場期待差】を上に抜き出します。</p></div>;
+    return <div className="earningsNumbers empty"><div className="smallTitle">数字の変化</div><p>調査結果を貼り付けると、通期・四半期・進捗率を表で表示します。</p></div>;
   }
-  return <div className="earningsNumbers"><div className="cardMiniHead"><b>数字の変化</b><span>表・見出し優先</span></div>{sections.map((sec) => {
-    if (!String(sec.body || '').trim()) return null;
+  const annual = sections.find((sec) => sec.key === 'annual');
+  const quarter = sections.find((sec) => sec.key === 'quarter');
+  const others = sections.filter((sec) => !['annual', 'quarter'].includes(sec.key));
+  const renderSection = (sec, open = false) => {
+    if (!sec || !String(sec.body || '').trim()) return null;
     const plain = String(sec.body || '').replace(/\|?\s*:?-{2,}:?\s*\|/g, '').trim();
-    return <section className="earningsNumberSection" key={sec.key}><div className="earningsNumberHead"><b>{sec.title}</b><span>{sec.hint}</span></div>{sec.tables.length ? sec.tables.slice(0, 2).map((table, i) => <EarningsNumberTable table={table} key={i} />) : <pre>{clipText(plain, 900)}</pre>}</section>;
-  })}</div>;
+    const content = sec.tables.length ? sec.tables.slice(0, 2).map((table, i) => <EarningsMetricMatrix table={table} key={i} />) : <pre>{clipText(plain, 700)}</pre>;
+    return <details className="earningsNumberDetails" key={sec.key} open={open}><summary><b>{sec.title}</b><span>{sec.hint}</span></summary>{content}</details>;
+  };
+  return <div className="earningsNumbers"><div className="cardMiniHead"><b>数字の変化</b><span>表で確認</span></div><EarningsCompactSummary summary={summary} />{renderSection(annual, true)}{renderSection(quarter, true)}{others.map((sec) => renderSection(sec, false))}</div>;
 }
 
 function buildEarningsPrompt(q = {}) {
@@ -2535,7 +2642,7 @@ function FundamentalTrendPanel({ q, note, onSave, onDelete, onSaveAtlas }) {
     </div>
     {(extractState || copied) && <div className="notice good">{extractState || '業績調査プロンプトをコピーしました'}</div>}
     <FundamentalCard q={q} />
-    <EarningsNumbersView raw={raw || note?.raw || ''} />
+    <EarningsNumbersView raw={raw || note?.raw || ''} summary={summary} />
     <details className="earningsSummaryDetails">
       <summary>MDO抽出サマリー</summary>
       <EarningsSummaryBox summary={summary} />
