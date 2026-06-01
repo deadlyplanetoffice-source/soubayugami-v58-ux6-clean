@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = 'MDO v58 / UX24.3Q';
+const APP_VERSION = 'MDO v58 / UX24.3R';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -1660,6 +1660,7 @@ function AtlasCompactAccordionRow({ item, idx, total, onOpenItem, onTogglePin, o
         <button onClick={() => onOpenItem(item, 'deep')}>判定</button>
         <button onClick={() => onOpenItem(item, 'summary')}>図鑑</button>
         <button onClick={() => onOpenItem(item, 'confirm')}>記録調査</button>
+        <button onClick={() => onOpenItem(item, 'fundamental')}>業績推移</button>
         <button onClick={() => onOpenItem(item, 'chart')}>チャート</button>
       </div>
     </div>}
@@ -2482,11 +2483,98 @@ function EarningsCompactSummary({ summary = {} }) {
   return <div className="earningsQuickSummary">{items.map(([k, v]) => <div className="earningsQuickItem" key={k}><span>{k}</span><b>{clipText(String(v || ''), 54)}</b></div>)}</div>;
 }
 
+function cleanEarningsValue(v = '') {
+  return String(v || '').replace(/会社予想/g, '').replace(/予想|予|概算|約|前後/g, '').replace(/[,円％%倍\s]/g, '').trim();
+}
+
+function parseEarningsNumeric(v = '') {
+  const n = Number(cleanEarningsValue(v).replace(/[▲△]/g, '-').replace(/[^0-9.\-]/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+
+function calcEarningsDelta(values = []) {
+  const nums = values.map(parseEarningsNumeric);
+  const pairs = [];
+  for (let i = 1; i < nums.length; i += 1) {
+    const prev = nums[i - 1];
+    const cur = nums[i];
+    if (prev == null || cur == null || Math.abs(prev) < 1e-9) { pairs.push('—'); continue; }
+    const pct = ((cur - prev) / Math.abs(prev)) * 100;
+    const sign = pct > 0 ? '+' : '';
+    pairs.push(`${sign}${pct.toFixed(Math.abs(pct) >= 10 ? 1 : 1)}%`);
+  }
+  return pairs;
+}
+
+function earningsMetricJudge(metric = '', cls = '', values = []) {
+  const m = String(metric || '');
+  if (!cls) return '推移未判定';
+  if (/利益率/.test(m)) {
+    if (cls === 'up') return '利益率改善';
+    if (cls === 'down') return '利益率低下';
+    return '利益率横ばい';
+  }
+  if (/自己資本/.test(m)) {
+    if (cls === 'up') return '財務改善';
+    if (cls === 'down') return '財務低下';
+    return '財務横ばい';
+  }
+  if (/配当/.test(m)) {
+    if (cls === 'up') return '増配基調';
+    if (cls === 'down') return '減配傾向';
+    return '配当横ばい';
+  }
+  if (cls === 'up') return '増加基調';
+  if (cls === 'down') return '低下基調';
+  return '横ばい';
+}
+
+const EARNINGS_CARD_METRICS = ['売上高', '営業利益', '純利益', '営業利益率', 'EPS', '配当', '自己資本比率', '経常/税前'];
+
+function buildEarningsMetricCards(table, limitMetrics = 7) {
+  if (!table?.header?.length || !table?.body?.length) return [];
+  const header = normalizeEarningsHeader(table.header);
+  const body = table.body.slice(0, 6);
+  const pIdxRaw = header.findIndex((h) => h === '期' || /期|年度|四半期/.test(String(h)));
+  const pIdx = pIdxRaw >= 0 ? pIdxRaw : 0;
+  const periods = body.map((row) => row[pIdx] || '—');
+  const candidates = EARNINGS_CARD_METRICS.map((name) => ({ name, idx: header.findIndex((h) => h === name) })).filter((x) => x.idx >= 0);
+  const extra = header.map((h, idx) => ({ name: h, idx })).filter((x) => x.idx !== pIdx && x.name && !candidates.some((c) => c.idx === x.idx));
+  return [...candidates, ...extra].slice(0, limitMetrics).map(({ name, idx }) => {
+    const values = body.map((row) => row[idx] || '—');
+    const cls = earningsTrendClass(values);
+    const mark = cls === 'up' ? '↗' : cls === 'down' ? '↘' : cls === 'flat' ? '→' : '—';
+    return { name, idx, periods, values, cls, mark, deltas: calcEarningsDelta(values), judge: earningsMetricJudge(name, cls, values) };
+  });
+}
+
+function EarningsMetricCard({ metric }) {
+  if (!metric) return null;
+  const cls = metric.cls ? ` trend-${metric.cls}` : '';
+  const flow = metric.values.map((v, i) => <span key={`${metric.name}-v-${i}`}><em>{v || '—'}</em>{i < metric.values.length - 1 && <b>→</b>}</span>);
+  return <details className={`earningsMetricCard${cls}`}>
+    <summary>
+      <div className="metricTop"><b>{metric.name}</b><span>{metric.mark}</span></div>
+      <div className="metricFlow">{flow}</div>
+      <div className="metricJudge">{metric.judge}</div>
+    </summary>
+    <div className="metricDetail">
+      {metric.periods.map((p, i) => <div className="metricDetailRow" key={`${metric.name}-${i}`}><span>{p}</span><b>{metric.values[i] || '—'}</b><em>{i > 0 ? (metric.deltas[i - 1] || '—') : '基準'}</em></div>)}
+    </div>
+  </details>;
+}
+
+function EarningsMetricCardsView({ table, kind = 'annual' }) {
+  const cards = buildEarningsMetricCards(table, kind === 'quarter' ? 5 : 7);
+  if (!cards.length) return <EarningsMetricMatrix table={table} />;
+  return <div className="earningsMetricCards">{cards.map((metric) => <EarningsMetricCard metric={metric} key={`${kind}-${metric.name}`} />)}</div>;
+}
+
 function EarningsNumbersView({ raw = '', summary = {} }) {
   const sections = extractEarningsNumberSections(raw);
   const hasAny = sections.some((sec) => String(sec.body || '').trim());
   if (!hasAny) {
-    return <div className="earningsNumbers empty"><div className="smallTitle">数字の変化</div><p>調査結果を貼り付けると、通期・四半期・進捗率を表で表示します。</p></div>;
+    return <div className="earningsNumbers empty"><div className="smallTitle">数字の変化</div><p>調査結果を貼り付けると、通期・四半期の推移カードを表示します。</p></div>;
   }
   const annual = sections.find((sec) => sec.key === 'annual');
   const quarter = sections.find((sec) => sec.key === 'quarter');
@@ -2494,10 +2582,11 @@ function EarningsNumbersView({ raw = '', summary = {} }) {
   const renderSection = (sec, open = false) => {
     if (!sec || !String(sec.body || '').trim()) return null;
     const plain = String(sec.body || '').replace(/\|?\s*:?-{2,}:?\s*\|/g, '').trim();
-    const content = sec.tables.length ? sec.tables.slice(0, 2).map((table, i) => <EarningsMetricMatrix table={table} key={i} />) : <pre>{clipText(plain, 700)}</pre>;
-    return <details className="earningsNumberDetails" key={sec.key} open={open}><summary><b>{sec.title}</b><span>{sec.hint}</span></summary>{content}</details>;
+    const mainContent = sec.tables.length ? sec.tables.slice(0, 1).map((table, i) => <EarningsMetricCardsView table={table} kind={sec.key} key={i} />) : <pre>{clipText(plain, 700)}</pre>;
+    const tableContent = sec.tables.length ? sec.tables.slice(0, 2).map((table, i) => <EarningsMetricMatrix table={table} key={i} />) : null;
+    return <details className="earningsNumberDetails earningsCardDetails" key={sec.key} open={open}><summary><b>{sec.title}</b><span>{sec.hint}</span></summary>{mainContent}{tableContent && <details className="earningsRawTableDetails"><summary>表で見る</summary>{tableContent}</details>}</details>;
   };
-  return <div className="earningsNumbers"><div className="cardMiniHead"><b>数字の変化</b><span>表で確認</span></div><EarningsCompactSummary summary={summary} />{renderSection(annual, true)}{renderSection(quarter, true)}{others.map((sec) => renderSection(sec, false))}</div>;
+  return <div className="earningsNumbers"><div className="cardMiniHead"><b>数字の変化</b><span>推移カード優先</span></div><EarningsCompactSummary summary={summary} />{renderSection(annual, true)}{renderSection(quarter, true)}{others.map((sec) => renderSection(sec, false))}</div>;
 }
 
 function buildEarningsPrompt(q = {}) {
