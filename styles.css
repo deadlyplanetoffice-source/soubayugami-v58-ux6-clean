@@ -4132,3 +4132,321 @@ button:hover{border-color:var(--neon-cyan);box-shadow:0 0 12px rgba(0,229,255,.1
   .mobileBottomNav button span,.mobileBottomNav button b,
   .bottomTabBar button span,.bottomTabBar button b{font-size:12px!important;}
 }
+
+/* UX24.3L: manual folders + overlapping hold tag */
+:root{
+  --bg:#01040a;
+  --panel:#041019;
+  --panel2:#020914;
+  --border:#0a3a52;
+  --text:#e8fbff;
+  --muted:#78a9ba;
+  --accent:#ff8a2f;
+  --accent2:#00f0ff;
+  --pos:#55ff9f;
+  --neg:#ff4d8a;
+  --warn:#ffd15f;
+  --neon-cyan:#00f0ff;
+  --neon-green:#55ff9f;
+  --neon-magenta:#ff3df2;
+  --neon-amber:#ffb02e;
+  --neon-violet:#9b5cff;
+  --neon-blue:#4da3ff;
+}
+body{
+  background:
+    linear-gradient(rgba(0,240,255,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,240,255,.026) 1px, transparent 1px),
+    radial-gradient(circle at 15% -8%, rgba(0,240,255,.18), transparent 34%),
+    radial-gradient(circle at 88% 6%, rgba(255,61,242,.14), transparent 30%),
+    radial-gradient(circle at 55% 112%, rgba(255,138,47,.08), transparent 34%),
+    linear-gradient(180deg,#01040a 0%,#03111c 52%,#01040a 100%)!important;
+  background-size: 32px 32px, 32px 32px, auto, auto, auto, auto!important;
+}
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,.025),transparent 8%,transparent 92%,rgba(0,240,255,.035));
+  mix-blend-mode:screen;
+  z-index:0;
+}
+.mobileApp,.legacyApp .app{position:relative;z-index:1;}
+.mobilePageHead,.topbar.compactTopbar{
+  border-bottom-color:rgba(0,240,255,.36)!important;
+  box-shadow:0 0 22px rgba(0,240,255,.12), inset 0 -1px 0 rgba(255,61,242,.08)!important;
+}
+.appVersion,.mobileBrandCompact span,.mobilePageHead h1{
+  text-shadow:0 0 18px rgba(255,138,47,.38),0 0 5px rgba(255,138,47,.18)!important;
+}
+.mobileAtlasListWrap .atlasListPanel,.atlasListPanel{
+  border-color:rgba(0,240,255,.42)!important;
+  box-shadow:0 0 0 1px rgba(0,240,255,.10) inset,0 0 32px rgba(0,240,255,.12),0 0 48px rgba(255,61,242,.035)!important;
+}
+.mobileAtlasListWrap .atlasListRow.atlasTwoLineRow,.atlasListRow.atlasTwoLineRow{
+  border-color:rgba(0,240,255,.34)!important;
+  background:linear-gradient(135deg,rgba(0,16,25,.94),rgba(9,5,22,.88))!important;
+  box-shadow:0 0 0 1px rgba(0,240,255,.08) inset,0 0 20px rgba(0,240,255,.07),0 9px 26px rgba(0,0,0,.32)!important;
+}
+.mobileAtlasListWrap .atlasListRow.atlasTwoLineRow.open,.atlasListRow.atlasTwoLineRow.open{
+  border-color:rgba(255,61,242,.42)!important;
+  box-shadow:0 0 0 1px rgba(255,61,242,.10) inset,0 0 26px rgba(255,61,242,.12),0 0 28px rgba(0,240,255,.08)!important;
+}
+.mobileAtlasListWrap .atlasListRow.atlasTwoLineRow.pinned,.atlasListRow.atlasTwoLineRow.pinned{
+  border-color:rgba(255,176,46,.62)!important;
+  box-shadow:0 0 0 1px rgba(255,176,46,.16) inset,0 0 28px rgba(255,176,46,.16),0 10px 28px rgba(0,0,0,.32)!important;
+}
+.mobileAtlasListWrap .atlasNameMain,.atlasNameMain{
+  color:#f2fdff!important;
+  text-shadow:0 0 12px rgba(0,240,255,.18)!important;
+}
+.atlasCodeMini{color:#83dfff!important;}
+.atlasMarketMini{color:#b8eaff!important;}
+.atlasOpenHint{color:#7aefff!important;opacity:.62;}
+.atlasFolderTiny{
+  background:rgba(120,169,186,.08)!important;
+  border-color:rgba(120,169,186,.28)!important;
+  color:#a9c8d3!important;
+  box-shadow:0 0 10px rgba(120,169,186,.04) inset!important;
+}
+.atlasFolderTiny.hold{
+  background:rgba(255,176,46,.17)!important;
+  color:#ffe6a6!important;
+  border-color:rgba(255,176,46,.56)!important;
+  box-shadow:0 0 14px rgba(255,176,46,.12),0 0 10px rgba(255,176,46,.08) inset!important;
+}
+.atlasFolderTiny.hot{
+  background:rgba(255,77,138,.17)!important;
+  color:#ffc5d8!important;
+  border-color:rgba(255,77,138,.52)!important;
+  box-shadow:0 0 14px rgba(255,77,138,.10),0 0 10px rgba(255,77,138,.06) inset!important;
+}
+.atlasFolderTiny.theme{
+  background:rgba(0,240,255,.16)!important;
+  color:#c6fbff!important;
+  border-color:rgba(0,240,255,.58)!important;
+  box-shadow:0 0 14px rgba(0,240,255,.12),0 0 10px rgba(0,240,255,.08) inset!important;
+}
+.atlasFolderTiny.dip{
+  background:rgba(85,255,159,.14)!important;
+  color:#c8ffdf!important;
+  border-color:rgba(85,255,159,.46)!important;
+  box-shadow:0 0 14px rgba(85,255,159,.09),0 0 10px rgba(85,255,159,.06) inset!important;
+}
+.atlasFolderTiny.earnings{
+  background:rgba(255,209,95,.16)!important;
+  color:#fff0b7!important;
+  border-color:rgba(255,209,95,.50)!important;
+  box-shadow:0 0 14px rgba(255,209,95,.09),0 0 10px rgba(255,209,95,.06) inset!important;
+}
+.atlasFolderTiny.credit{
+  background:rgba(155,92,255,.15)!important;
+  color:#dccbff!important;
+  border-color:rgba(155,92,255,.48)!important;
+  box-shadow:0 0 14px rgba(155,92,255,.10),0 0 10px rgba(155,92,255,.06) inset!important;
+}
+.atlasFolderTiny.long{
+  background:rgba(77,163,255,.13)!important;
+  color:#c9e3ff!important;
+  border-color:rgba(77,163,255,.42)!important;
+  box-shadow:0 0 14px rgba(77,163,255,.08),0 0 10px rgba(77,163,255,.06) inset!important;
+}
+.atlasFolderTiny.neutral{
+  background:rgba(120,169,186,.08)!important;
+  color:#a9c8d3!important;
+  border-color:rgba(120,169,186,.26)!important;
+}
+.atlasFolderTiny.grave{
+  background:rgba(63,76,88,.16)!important;
+  color:#8ca1ad!important;
+  border-color:rgba(100,116,139,.24)!important;
+}
+.atlasScopeChips button,.atlasFolderChips button{
+  box-shadow:0 0 10px rgba(0,240,255,.04) inset!important;
+}
+.atlasScopeChips button.active,.atlasFolderChips button.active{
+  box-shadow:0 0 18px rgba(0,240,255,.20),0 0 12px rgba(0,240,255,.10) inset!important;
+}
+.atlasOrderMini button,
+.atlasSecondControls select,.atlasSecondControls button,.atlasAccordionActions button,
+.atlasFolderManagerGrid input,.atlasFolderManagerGrid select,.atlasFolderManagerGrid button{
+  border-color:rgba(0,240,255,.34)!important;
+  box-shadow:0 0 12px rgba(0,240,255,.08) inset!important;
+}
+.atlasAccordionSpark{
+  border-color:rgba(0,240,255,.28)!important;
+  box-shadow:0 0 18px rgba(0,240,255,.07) inset!important;
+}
+@media (max-width:780px){
+  .mobileTabBar,.mobileBottomNav,.bottomTabBar{
+    background:rgba(1,10,16,.50)!important;
+    border-color:rgba(0,240,255,.36)!important;
+    box-shadow:0 0 24px rgba(0,240,255,.18),0 0 10px rgba(255,61,242,.06),0 10px 28px rgba(0,0,0,.42)!important;
+  }
+  .mobileTabBar button.active,.mobileBottomNav button.active,.bottomTabBar button.active{
+    background:rgba(0,240,255,.24)!important;
+    box-shadow:0 0 18px rgba(0,240,255,.24), inset 0 0 8px rgba(0,240,255,.10)!important;
+  }
+}
+
+
+/* UX24.3L: フォルダとタグを分離。保有は重複タグ。 */
+.atlasTagTiny{
+  display:inline-flex;
+  align-items:center;
+  min-height:18px;
+  padding:1px 6px;
+  border-radius:999px;
+  font-size:10px;
+  line-height:1.1;
+  border:1px solid rgba(120,169,186,.26);
+  background:rgba(120,169,186,.08);
+  color:#a9c8d3;
+  white-space:nowrap;
+}
+.atlasTagTiny.hold{
+  background:rgba(255,176,46,.17)!important;
+  color:#ffe6a6!important;
+  border-color:rgba(255,176,46,.58)!important;
+  box-shadow:0 0 14px rgba(255,176,46,.12),0 0 10px rgba(255,176,46,.08) inset!important;
+}
+.atlasTagTiny.cash{background:rgba(255,209,95,.13)!important;color:#fff0b7!important;border-color:rgba(255,209,95,.42)!important;}
+.atlasTagTiny.credit{background:rgba(155,92,255,.15)!important;color:#dccbff!important;border-color:rgba(155,92,255,.48)!important;}
+.atlasTagTiny.earnings{background:rgba(255,209,95,.16)!important;color:#fff0b7!important;border-color:rgba(255,209,95,.50)!important;}
+.atlasTagTiny.watch{background:rgba(0,240,255,.13)!important;color:#c6fbff!important;border-color:rgba(0,240,255,.42)!important;}
+.atlasTagControls{gap:6px;flex-wrap:wrap;}
+.atlasTagToggle{
+  background:rgba(2,18,27,.72)!important;
+  color:#a9c8d3!important;
+  border:1px solid rgba(120,169,186,.28)!important;
+}
+.atlasTagToggle.active.hold{
+  background:rgba(255,176,46,.18)!important;
+  color:#ffe6a6!important;
+  border-color:rgba(255,176,46,.58)!important;
+  box-shadow:0 0 16px rgba(255,176,46,.14),0 0 10px rgba(255,176,46,.08) inset!important;
+}
+.atlasFolderTiny.hold{display:none!important;}
+
+/* UX24.3M: 業績推移ページ v1（プロンプト生成 + 貼り付け抽出） */
+.earningsTrendPage{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.earningsSummary{
+  border:1px solid rgba(0,240,255,.28);
+  background:linear-gradient(135deg,rgba(2,12,22,.72),rgba(8,4,22,.62));
+  border-radius:16px;
+  padding:12px;
+  box-shadow:0 0 18px rgba(0,240,255,.07) inset,0 0 18px rgba(0,240,255,.05);
+}
+.earningsSummary.empty p{margin:6px 0 0;color:var(--muted);font-size:13px;line-height:1.55;}
+.earningsSummaryRow{
+  display:grid;
+  grid-template-columns:84px 1fr;
+  gap:8px;
+  padding:8px 0;
+  border-top:1px solid rgba(0,240,255,.12);
+}
+.earningsSummaryRow:first-of-type{border-top:0;}
+.earningsSummaryRow span{
+  color:#7aefff;
+  font-size:12px;
+  white-space:nowrap;
+}
+.earningsSummaryRow p{
+  margin:0;
+  color:#e8fbff;
+  font-size:13px;
+  line-height:1.55;
+}
+.earningsPromptBox,.earningsPasteBox,.earningsHistory{
+  border:1px solid rgba(0,240,255,.24);
+  background:rgba(2,12,22,.62);
+  border-radius:16px;
+  padding:10px;
+}
+.earningsPromptBox summary,.earningsHistory summary{
+  cursor:pointer;
+  color:#c6fbff;
+  font-weight:600;
+  padding:4px 2px 10px;
+}
+.earningsPromptBox textarea,.earningsPasteBox textarea{
+  width:100%;
+  min-height:240px;
+  border-radius:14px;
+  border:1px solid rgba(0,240,255,.28);
+  background:rgba(0,5,10,.72);
+  color:#e8fbff;
+  padding:10px;
+  font-size:13px;
+  line-height:1.55;
+  resize:vertical;
+  box-shadow:inset 0 0 14px rgba(0,240,255,.06);
+}
+.earningsPromptBox textarea{min-height:300px;}
+.earningsActions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:8px;
+}
+.earningsMiniStatus{
+  display:inline-flex;
+  align-items:center;
+  min-height:18px;
+  padding:1px 6px;
+  border-radius:999px;
+  font-size:10px;
+  border:1px solid rgba(255,209,95,.50);
+  background:rgba(255,209,95,.14);
+  color:#fff0b7;
+  margin-left:6px;
+}
+@media (max-width:780px){
+  .earningsSummaryRow{grid-template-columns:76px 1fr;gap:7px;}
+  .earningsPromptBox textarea,.earningsPasteBox textarea{min-height:220px;font-size:12px;}
+  .earningsPromptBox textarea{min-height:280px;}
+}
+
+/* UX24.3N: 調査系ページ統一 + 業績数字優先 */
+.researchUnifiedActions{align-items:center;gap:6px;}
+.fundamentalTrendNote.compactNote{padding:10px 12px;border:1px solid rgba(0,240,255,.18);border-radius:14px;background:rgba(0,18,30,.42);}
+.fundamentalTrendNote.compactNote p{margin:4px 0 0;font-size:12px;line-height:1.5;color:#bfeef5;}
+.earningsNumbers{
+  border:1px solid rgba(0,240,255,.32);
+  background:linear-gradient(135deg,rgba(0,18,28,.76),rgba(14,5,27,.66));
+  border-radius:16px;
+  padding:10px;
+  box-shadow:0 0 22px rgba(0,240,255,.08), inset 0 0 16px rgba(0,240,255,.05);
+}
+.earningsNumbers.empty p{margin:6px 0 0;color:#a9dfe7;font-size:13px;line-height:1.55;}
+.earningsNumberSection{margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,240,255,.16);}
+.earningsNumberSection:first-of-type{margin-top:6px;}
+.earningsNumberHead{display:flex;justify-content:space-between;gap:10px;align-items:baseline;margin-bottom:7px;}
+.earningsNumberHead b{font-weight:500;color:#e8fbff;letter-spacing:.03em;}
+.earningsNumberHead span{font-size:11px;color:#84dae5;text-align:right;line-height:1.35;}
+.earningsNumberSection pre{
+  margin:0;white-space:pre-wrap;word-break:break-word;font-size:12px;line-height:1.55;color:#d8f8ff;
+  padding:9px;border-radius:12px;background:rgba(0,5,10,.46);border:1px solid rgba(0,240,255,.14);
+}
+.earningsTableWrap{overflow-x:auto;border:1px solid rgba(0,240,255,.18);border-radius:12px;background:rgba(0,5,10,.48);}
+.earningsNumberTable{width:100%;min-width:560px;border-collapse:collapse;font-size:11px;color:#e9fbff;}
+.earningsNumberTable th,.earningsNumberTable td{padding:7px 8px;border-bottom:1px solid rgba(0,240,255,.12);text-align:right;white-space:nowrap;}
+.earningsNumberTable th:first-child,.earningsNumberTable td:first-child{text-align:left;color:#7aefff;position:sticky;left:0;background:rgba(0,11,18,.94);}
+.earningsNumberTable th{font-weight:500;color:#fff0b7;background:rgba(255,209,95,.07);}
+.earningsSummaryDetails{
+  border:1px solid rgba(0,240,255,.18);border-radius:14px;background:rgba(2,12,22,.42);padding:8px;
+}
+.earningsSummaryDetails summary{cursor:pointer;color:#c6fbff;font-size:13px;padding:3px 2px;font-weight:500;}
+.earningsSummaryDetails .earningsSummary{margin-top:8px;}
+@media (max-width:780px){
+  .researchUnifiedActions button{min-height:32px;padding:5px 8px;font-size:11px;}
+  .earningsNumberHead{display:block;}
+  .earningsNumberHead span{display:block;text-align:left;margin-top:2px;}
+  .earningsNumberTable{min-width:500px;font-size:10.5px;}
+  .earningsNumberTable th,.earningsNumberTable td{padding:6px 7px;}
+}

@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = 'MDO v58 / UX24.3N';
+const APP_VERSION = 'MDO v58 / UX24.3O';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -1652,10 +1652,10 @@ function AtlasCompactAccordionRow({ item, idx, total, onOpenItem, onTogglePin, o
         <button className="atlasDeleteText" onClick={() => onDeleteItem?.(item)}>削除</button>
       </div>
       <div className="atlasAccordionActions">
-        <button onClick={() => onOpenItem(item, 'summary')}>図鑑カード</button>
         <button onClick={() => onOpenItem(item, 'deep')}>判定</button>
-        <button onClick={() => onOpenItem(item, 'fundamental')}>業績推移</button>
+        <button onClick={() => onOpenItem(item, 'summary')}>図鑑</button>
         <button onClick={() => onOpenItem(item, 'confirm')}>記録調査</button>
+        <button onClick={() => onOpenItem(item, 'chart')}>チャート</button>
       </div>
     </div>}
   </article>;
@@ -1716,9 +1716,10 @@ function MobileQuoteCard({ q, mode, selected, watched = false, companyNote, cred
         <span>撤退 {yen(q.rrStop || q.bottomStop)}</span>
       </div>
       <div className="mqActions" onClick={(e) => e.stopPropagation()}>
+        <button onClick={() => onOpen('deep')}>判定</button>
         <button onClick={() => onOpen('summary')}>図鑑</button>
+        <button onClick={() => onOpen('confirm')}>記録調査</button>
         <button onClick={() => onOpen('chart')}>チャート</button>
-        <button onClick={() => onOpen('credit')}>信用</button>
         <button className={watched ? 'removeWatch' : ''} onClick={onWatch}>{watched ? '監視削除' : '監視追加'}</button>
       </div>
       {Number.isInteger(orderIndex) && orderTotal > 1 && <div className="mqOrderControls" onClick={(e) => e.stopPropagation()}>
@@ -1881,11 +1882,11 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
   const normalizedTab = mobile
     ? (['summary','chart','deep','confirm','fundamental','links'].includes(tab) ? tab
       : ['company','state','bottom','trend'].includes(tab) ? 'deep'
-      : ['note','credit','tech','ir','drop'].includes(tab) ? 'confirm'
+      : ['note','credit','fundamental','tech','ir','drop'].includes(tab) ? 'confirm'
       : 'summary')
     : tab;
   const deepInitialOpen = ['company','state','bottom','trend'].includes(tab) ? tab : '';
-  const confirmInitialOpen = ['note','credit','tech','ir','drop'].includes(tab) ? tab : '';
+  const confirmInitialOpen = ['note','credit','fundamental','tech','ir','drop'].includes(tab) ? tab : '';
 
   return <div ref={detailTopRef} className={mobile ? 'detailRoot mobileDetailRoot' : 'detailRoot'}>
     {!mobile && <>
@@ -1897,9 +1898,8 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
       {(mobile ? [
         ['summary', '図鑑'],
         ['deep', '判定'],
-        ['chart', 'チャート'],
-        ['fundamental', '業績'],
         ['confirm', '記録調査'],
+        ['chart', 'チャート'],
         ['links', 'リンク'],
       ] : [
         ['summary', '結論'],
@@ -1926,12 +1926,13 @@ function Detail({ q, selected, activeTab, setActiveTab, research, ir, irLoading,
       { id: 'bottom', title: '試し玉', hint: '下値・反発・危険度', content: () => <BottomPanel q={q} /> },
       { id: 'trend', title: '順張り', hint: '上昇継続・安全度・撤退', content: () => <TrendPanel q={q} /> },
     ]} />}
-    {normalizedTab === 'confirm' && <MobileAccordionGroup storageKey={`confirm-${q.code}-${confirmInitialOpen}`} initialOpenId={confirmInitialOpen} intro="図鑑への書き込み・信用需給記録はここです。AIは下書き係、自分で確認して保存します。" sections={[
-      { id: 'note', title: '会社調査', hint: '調査プロンプト・図鑑メモ保存を1画面で完結', content: () => <SafePanel><UnifiedCompanyResearchPanel q={q} ir={ir} dropReport={dropReport} research={research} note={companyNote} onSave={(patch) => onUpdateCompanyNote?.(q.code, patch)} onDelete={() => onDeleteCompanyNote?.(q.code)} onSaveAtlas={onSaveAtlas} /></SafePanel> },
-      { id: 'credit', title: '信用需給を記録する', hint: '信用データ貼り付け・抽出・保存', content: () => <CreditBalancePanel q={q} note={creditNote} onSave={(patch) => onUpdateCreditNote?.(q.code, patch)} onDelete={() => onDeleteCreditNote?.(q.code)} onSaveAtlas={onSaveAtlas} /> },
-      { id: 'tech', title: '価格/指標', hint: '価格帯・出来高・指標確認', content: () => <TechnicalPanel q={q} /> },
+    {normalizedTab === 'confirm' && <MobileAccordionGroup storageKey={`confirm-${q.code}-${confirmInitialOpen}`} initialOpenId={confirmInitialOpen} intro="記録調査の詳細一覧です。会社・信用・業績・急落理由を必要なものだけ開きます。" sections={[
+      { id: 'note', title: '会社調査', hint: '会社図鑑用の調査・貼り付け・抽出', content: () => <SafePanel><UnifiedCompanyResearchPanel q={q} ir={ir} dropReport={dropReport} research={research} note={companyNote} onSave={(patch) => onUpdateCompanyNote?.(q.code, patch)} onDelete={() => onDeleteCompanyNote?.(q.code)} onSaveAtlas={onSaveAtlas} /></SafePanel> },
+      { id: 'credit', title: '信用需給', hint: '信用データ貼り付け・抽出・保存', content: () => <CreditBalancePanel q={q} note={creditNote} onSave={(patch) => onUpdateCreditNote?.(q.code, patch)} onDelete={() => onDeleteCreditNote?.(q.code)} onSaveAtlas={onSaveAtlas} /> },
+      { id: 'fundamental', title: '業績推移', hint: '数字推移・進捗率・市場期待差', content: () => <FundamentalTrendPanel q={q} note={earningsNote} onSave={(patch) => onUpdateEarningsNote?.(q.code, patch)} onDelete={() => onDeleteEarningsNote?.(q.code)} onSaveAtlas={onSaveAtlas} /> },
+      { id: 'drop', title: '急落理由', hint: '悪材料・権利落ち・材料出尽くし確認', content: () => <DropReasonPanel report={dropReport} loading={dropLoading} onInvestigate={onInvestigate} q={q} /> },
       { id: 'ir', title: 'IR/ニュース', hint: '直近材料と更新', content: () => <IrPanel ir={ir} loading={irLoading} error={irError} onReload={onReloadIr} q={q} /> },
-      { id: 'drop', title: '急落理由', hint: '急落調査・悪材料確認', content: () => <DropReasonPanel report={dropReport} loading={dropLoading} onInvestigate={onInvestigate} q={q} /> },
+      { id: 'tech', title: '価格/指標', hint: '価格帯・出来高・指標確認', content: () => <TechnicalPanel q={q} /> },
     ]} />}
         {normalizedTab === 'note' && <SafePanel><UnifiedCompanyResearchPanel q={q} ir={ir} dropReport={dropReport} research={research} note={companyNote} onSave={(patch) => onUpdateCompanyNote?.(q.code, patch)} onDelete={() => onDeleteCompanyNote?.(q.code)} onSaveAtlas={onSaveAtlas} /></SafePanel>}
     {normalizedTab === 'credit' && <CreditBalancePanel q={q} note={creditNote} onSave={(patch) => onUpdateCreditNote?.(q.code, patch)} onDelete={() => onDeleteCreditNote?.(q.code)} onSaveAtlas={onSaveAtlas} />}
@@ -2188,7 +2189,6 @@ function NextActionCard({ q }) {
     </div>
     {!!s.conditions?.length && <ul className="naConditions">{s.conditions.map((c, i) => <li key={i}>{c}</li>)}</ul>}
     {!!s.reasons?.length && <p className="naReasons">{s.reasons.join(' / ')}</p>}
-    <p className="naDisclaimer">※ 価格・出来高パターンのみの判定。IR・業績は未考慮。</p>
   </section>;
 }
 
@@ -2535,11 +2535,6 @@ function FundamentalTrendPanel({ q, note, onSave, onDelete, onSaveAtlas }) {
     </div>
     {(extractState || copied) && <div className="notice good">{extractState || '業績調査プロンプトをコピーしました'}</div>}
     <FundamentalCard q={q} />
-    <div className="fundamentalTrendNote compactNote">
-      <b>数字専用メモ</b>
-      <p>会社概要・信用需給とは分けて、通期推移、四半期推移、進捗率、市場期待差だけを保存します。</p>
-      {!hasAny && <p>参考ファンダ値は未取得です。業績系列は下の貼り付け欄に保存します。</p>}
-    </div>
     <EarningsNumbersView raw={raw || note?.raw || ''} />
     <details className="earningsSummaryDetails">
       <summary>MDO抽出サマリー</summary>
@@ -3512,10 +3507,9 @@ function CreditBalancePanel({ q, note, onSave, onDelete, onSaveAtlas }) {
   return <div className="creditPanel compactCredit">
     <div className="companyHeader noteHeader">
       <div><div className="smallTitle">信用需給</div><h3>{q.code} {q.name}</h3></div>
-      <div className="companyActions compactActions">
+      <div className="companyActions compactActions researchUnifiedActions">
         <button className="sub researchMain" title="信用需給調査プロンプトをコピー" onClick={copyCreditPrompt}>需給P</button>
         <button className="sub" title="ChatGPTアプリを開く（未インストール時は反応しません）" onClick={openChatGPT}>App</button>
-        <button className="sub" title="JPXから信用データを自動取得" onClick={fetchJpxAuto} disabled={jpxLoading}>{jpxLoading ? 'JPX中' : 'JPXβ'}</button>
         <button title="この銘柄の信用需給を保存" onClick={saveNow}>{saved ? '済' : '保存'}</button>
         {note && <button className="sub dangerMini" title="この銘柄の信用需給メモを削除" onClick={() => { if (window.confirm('この銘柄の信用需給メモを削除しますか？')) onDelete?.(); }}>削除</button>}
       </div>
@@ -3805,20 +3799,12 @@ ${source || 'ここに調査ログはまだ貼り付けられていません。'
     </div>
 
     <div className="researchToolbar phaseToolbar">
-      <div className="phaseHelp">
-        <b>使い分け</b>
-        <span>会社を調べる＝調査開始用プロンプト / 図鑑に整形＝ChatGPTで保存形式へ整える / 有益情報を抽出＝古いメモも暫定カード化</span>
+      <div className="phaseRow researchUnifiedActions">
+        <button className={`sub researchMain ${!hasRaw ? 'activeTool' : ''}`} title="会社調査プロンプトをコピー" onClick={() => copyText(buildCompanyResearchPrompt(), 'company')}>会社P</button>
+        <button className="sub" title="ChatGPTアプリを開く" onClick={openChatGPT}>App</button>
+        {hasRaw && <button className="sub activeTool" title="貼り付け本文から図鑑カードを抽出" onClick={extractKeyInfoFromRaw}>抽出</button>}
+        {hasRaw && <button className="sub researchMain" title="図鑑整形プロンプトをコピー" onClick={() => copyText(buildAtlasPrompt(), 'atlas')}>図鑑P</button>}
       </div>
-      <div className="phaseRow">
-        <span className="phaseLabel">調べる</span>
-        <button className={`sub researchMain ${!hasRaw ? 'activeTool' : ''}`} onClick={() => copyText(buildCompanyResearchPrompt(), 'company')}>📋 会社を調べる</button>
-        <button className="sub" onClick={openChatGPT}>📱 ChatGPT</button>
-      </div>
-      {hasRaw && <div className="phaseRow formatPhase">
-        <span className="phaseLabel">整える</span>
-        <button className="sub activeTool" onClick={extractKeyInfoFromRaw}>✨ 有益情報を抽出</button>
-        <button className="sub researchMain" onClick={() => copyText(buildAtlasPrompt(), 'atlas')}>📋 図鑑に整形</button>
-      </div>}
       {copyState === 'company' && <span className="copyMini">会社調査プロンプトをコピー済み</span>}
       {copyState === 'atlas' && <span className="copyMini">図鑑整形プロンプトをコピー済み</span>}
       {extractState && <span className="copyMini">{extractState}</span>}

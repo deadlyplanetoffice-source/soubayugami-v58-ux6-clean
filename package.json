@@ -1,6 +1,6 @@
 {
-  "name": "soubayugami-kansokuki-v58-ux24-3m-earnings-trend",
-  "version": "58.24.3-m",
+  "name": "soubayugami-kansokuki-v58-ux24-3o-nav-research-cleanup",
+  "version": "58.24.3-o",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm:server\" \"npm:client\"",
