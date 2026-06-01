@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = 'MDO v58 / UX24.3M';
+const APP_VERSION = 'MDO v58 / UX24.3N';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -2335,6 +2335,59 @@ function extractEarningsSummary(raw = '') {
   };
 }
 
+
+function parseMarkdownTables(block = '') {
+  const lines = String(block || '').split('\n');
+  const tables = [];
+  let cur = [];
+  const flush = () => {
+    if (cur.length >= 2) tables.push(cur.slice());
+    cur = [];
+  };
+  for (const line of lines) {
+    if (line.includes('|') && line.split('|').filter((x) => x.trim()).length >= 2) cur.push(line.trim());
+    else flush();
+  }
+  flush();
+  return tables.map((rows) => {
+    const cleanRows = rows
+      .map((row) => row.split('|').map((c) => c.trim()).filter((c, i, arr) => !(i === 0 && c === '') && !(i === arr.length - 1 && c === '')))
+      .filter((cells) => cells.length >= 2 && !cells.every((c) => /^:?-{2,}:?$/.test(c)));
+    const header = cleanRows[0] || [];
+    const body = cleanRows.slice(1).filter((cells) => !cells.every((c) => /^:?-{2,}:?$/.test(c)));
+    return { header, body };
+  }).filter((t) => t.header.length && t.body.length);
+}
+
+function extractEarningsNumberSections(raw = '') {
+  const text = String(raw || '').trim();
+  const pick = (names) => getSectionText(text, names);
+  return [
+    { key: 'annual', title: '通期業績推移', hint: '2〜3年の売上・利益・利益率・EPS・配当・自己資本比率', body: pick(['通期業績推移', '過去2〜3年の通期業績', '過去2～3年の通期業績']) },
+    { key: 'quarter', title: '直近四半期推移', hint: '4〜8四半期の売上・利益・利益率・前年比', body: pick(['直近四半期推移', '直近4〜8四半期', '四半期推移']) },
+    { key: 'progress', title: '進捗率', hint: '会社予想に対する進捗・前年同期進捗・上振れ余地', body: pick(['進捗率', '通期予想と進捗率']) },
+    { key: 'expectation', title: '市場期待差', hint: '会社予想・四季報・コンセンサス・実績進捗との差', body: pick(['市場期待差']) },
+  ].map((sec) => ({ ...sec, tables: parseMarkdownTables(sec.body) }));
+}
+
+function EarningsNumberTable({ table }) {
+  if (!table?.header?.length || !table?.body?.length) return null;
+  return <div className="earningsTableWrap"><table className="earningsNumberTable"><thead><tr>{table.header.map((h, i) => <th key={i}>{h}</th>)}</tr></thead><tbody>{table.body.slice(0, 12).map((row, r) => <tr key={r}>{table.header.map((_, i) => <td key={i}>{row[i] || ''}</td>)}</tr>)}</tbody></table></div>;
+}
+
+function EarningsNumbersView({ raw = '' }) {
+  const sections = extractEarningsNumberSections(raw);
+  const hasAny = sections.some((sec) => String(sec.body || '').trim());
+  if (!hasAny) {
+    return <div className="earningsNumbers empty"><div className="smallTitle">数字の変化</div><p>調査結果を貼り付けると、【通期業績推移】【直近四半期推移】【進捗率】【市場期待差】を上に抜き出します。</p></div>;
+  }
+  return <div className="earningsNumbers"><div className="cardMiniHead"><b>数字の変化</b><span>表・見出し優先</span></div>{sections.map((sec) => {
+    if (!String(sec.body || '').trim()) return null;
+    const plain = String(sec.body || '').replace(/\|?\s*:?-{2,}:?\s*\|/g, '').trim();
+    return <section className="earningsNumberSection" key={sec.key}><div className="earningsNumberHead"><b>{sec.title}</b><span>{sec.hint}</span></div>{sec.tables.length ? sec.tables.slice(0, 2).map((table, i) => <EarningsNumberTable table={table} key={i} />) : <pre>{clipText(plain, 900)}</pre>}</section>;
+  })}</div>;
+}
+
 function buildEarningsPrompt(q = {}) {
   return `この日本株について、過去2〜3年の業績推移と市場期待差を、数字中心で調査してください。
 
@@ -2448,13 +2501,19 @@ function FundamentalTrendPanel({ q, note, onSave, onDelete, onSaveAtlas }) {
   const [raw, setRaw] = useState(() => String(note?.raw || ''));
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
-  useEffect(() => { setRaw(String(note?.raw || '')); }, [q?.code, note?.updatedAt]);
+  const [extractState, setExtractState] = useState('');
+  useEffect(() => { setRaw(String(note?.raw || '')); setSaved(false); setExtractState(''); }, [q?.code, note?.updatedAt]);
   const prompt = useMemo(() => buildEarningsPrompt(q), [q?.code, q?.name]);
   const summary = useMemo(() => extractEarningsSummary(raw || note?.raw || ''), [raw, note?.updatedAt]);
   const hasAny = [f.sales, f.revenue, f.operatingProfit, f.netIncome, f.per, q?.per, f.pbr, q?.pbr, f.dividendYield, q?.dividendYield].some((v) => v != null && v !== '' && v !== '—');
   async function copyPrompt() {
     try { await navigator.clipboard.writeText(prompt); setCopied(true); setTimeout(() => setCopied(false), 1200); }
     catch { setCopied(false); }
+  }
+  function openChatGPT() { window.location.href = 'chatgpt://'; }
+  function extractNow() {
+    setExtractState(raw.trim() ? '貼り付け本文から数字欄とMDOサマリーを更新しました。' : '調査結果を貼り付けてから抽出してください。');
+    setTimeout(() => setExtractState(''), 2600);
   }
   function saveNow() {
     const text = String(raw || '').trim();
@@ -2463,26 +2522,41 @@ function FundamentalTrendPanel({ q, note, onSave, onDelete, onSaveAtlas }) {
     setTimeout(() => setSaved(false), 1200);
   }
   return <section className="fundamentalTrendPanel earningsTrendPage">
-    <div className="cardMiniHead"><b>業績推移</b><span>{note?.updatedAt ? `保存 ${String(note.updatedAt).slice(0,10)}` : '未保存'}</span></div>
+    <div className="companyHeader noteHeader">
+      <div><div className="smallTitle">業績推移</div><h3>{q.code} {q.name}</h3></div>
+      <div className="companyActions compactActions researchUnifiedActions">
+        <button className="sub researchMain" title="業績調査プロンプトをコピー" onClick={copyPrompt}>{copied ? 'P済' : '業績P'}</button>
+        <button className="sub" title="ChatGPTアプリを開く（未インストール時は反応しません）" onClick={openChatGPT}>App</button>
+        <button className="sub activeTool" title="貼り付け本文から数字欄とサマリーを抽出" onClick={extractNow}>抽出</button>
+        <button className="primary" title="業績メモを保存" onClick={saveNow}>{saved ? '保存済み' : '保存'}</button>
+        {onSaveAtlas && <button className="sub" onClick={onSaveAtlas}>JSON</button>}
+        {note?.raw && <button className="dangerSubtle" onClick={() => { if (window.confirm('この銘柄の業績推移メモを削除しますか？')) { onDelete?.(); setRaw(''); } }}>削除</button>}
+      </div>
+    </div>
+    {(extractState || copied) && <div className="notice good">{extractState || '業績調査プロンプトをコピーしました'}</div>}
     <FundamentalCard q={q} />
-    <div className="fundamentalTrendNote">
-      <b>UX24.3M：貼り付け抽出型</b>
-      <p>自動取得ではなく、調査プロンプトで自分が確認した数字を貼り付け、MDO用サマリーを抽出します。</p>
+    <div className="fundamentalTrendNote compactNote">
+      <b>数字専用メモ</b>
+      <p>会社概要・信用需給とは分けて、通期推移、四半期推移、進捗率、市場期待差だけを保存します。</p>
       {!hasAny && <p>参考ファンダ値は未取得です。業績系列は下の貼り付け欄に保存します。</p>}
     </div>
-    <EarningsSummaryBox summary={summary} />
+    <EarningsNumbersView raw={raw || note?.raw || ''} />
+    <details className="earningsSummaryDetails">
+      <summary>MDO抽出サマリー</summary>
+      <EarningsSummaryBox summary={summary} />
+    </details>
     <details className="earningsPromptBox">
-      <summary>業績調査プロンプト</summary>
-      <textarea readOnly value={prompt} />
+      <summary>業績調査プロンプトを表示</summary>
+      <textarea readOnly value={prompt} onFocus={(e) => e.currentTarget.select()} />
       <button className="primary" onClick={copyPrompt}>{copied ? 'コピー済み' : 'プロンプトをコピー'}</button>
     </details>
     <div className="earningsPasteBox">
       <div className="cardMiniHead"><b>調査結果貼り付け</b><span>会社・信用調査とは別保存</span></div>
-      <textarea value={raw} onChange={(e) => setRaw(e.target.value)} placeholder="調査結果をここに貼り付け。特に【MDO保存用サマリー】があると抽出精度が上がります。" />
+      <textarea value={raw} onChange={(e) => setRaw(e.target.value)} placeholder="調査結果をここに貼り付け。表は【通期業績推移】【直近四半期推移】【進捗率】【市場期待差】から優先表示します。" />
       <div className="earningsActions">
+        <button className="sub" onClick={extractNow}>貼り付けから抽出</button>
         <button className="primary" onClick={saveNow}>{saved ? '保存済み' : '業績メモ保存'}</button>
         {onSaveAtlas && <button className="sub" onClick={onSaveAtlas}>JSON保存</button>}
-        {note?.raw && <button className="dangerSubtle" onClick={() => { if (window.confirm('この銘柄の業績推移メモを削除しますか？')) { onDelete?.(); setRaw(''); } }}>業績メモ削除</button>}
       </div>
     </div>
     {Array.isArray(note?.history) && note.history.length > 0 && <details className="earningsHistory"><summary>過去保存 {note.history.length}件</summary>{note.history.slice().reverse().map((h, i) => <div className="historyRow" key={i}><span>{String(h.savedAt || '').slice(0,10) || '—'}</span><span>{clipText(String(h.raw || '').replace(/\s+/g, ' '), 120)}</span></div>)}</details>}
@@ -3394,6 +3468,7 @@ function CreditBalancePanel({ q, note, onSave, onDelete, onSaveAtlas }) {
     ].join('\n');
     return `以下の日本株について、まず最新の信用需給データを調査し、そのうえで診断してください。\n\n重要：過去に保存した信用データや貼り付けメモは、現在値として扱わないでください。必ず最新に近い信用買残・信用売残・前週比・信用倍率/貸借倍率・基準日を確認し、取得できた数値を優先してください。取得できない項目は「未確認」と明記してください。\n\n【銘柄・株価情報】\n${qline}\n\n【アプリ内の前回保存データ（参考扱い。最新値としては使わない）】\n${savedCredit}\n\n【まず調査して取得してほしい信用需給データ】\n・信用買残\n・信用売残\n・買残前週比\n・売残前週比\n・信用倍率または貸借倍率\n・基準日\n・可能なら日証金データ：貸株、融資、差引、逆日歩\n・可能なら機関空売り/貸株残の概況\n\n確認元候補：トレーダーズ・ウェブ、Yahooファイナンス、株探、JPX銘柄別信用取引週末残高、日証金、証券会社の信用情報ページ。確認元と基準日を必ず書いてください。\n\n【診断してほしいこと】\n1. 買残株数だけで重い/軽いを判定せず、出来高に対する重さ、買残金額、時価総額比、株価位置を踏まえてください。\n2. 低位株の場合は株数が大きく見えやすいので、金額ベース・出来高比で補正してください。\n3. 株価下落中に買残が増えているのか、上昇中に買残が増えているのかを分けてください。\n4. 売残が多い場合は、単なる売り圧ではなく、踏み上げ余地・買い戻し余地も評価してください。\n5. 日証金データ（貸株・融資・差引・逆日歩）は、信用残とは別枠の短期貸借需給として読み解いてください。\n6. この銘柄を短期信用で触る場合、需給面で「試し玉可 / 小ロット限定 / 反発確認 / 戻り売り注意 / 信用では触らない」のどれに近いか整理してください。\n\n【出力形式】\n【取得した信用需給データ】\n信用買残：\n信用売残：\n買残前週比：\n売残前週比：\n信用倍率/貸借倍率：\n基準日：\n確認元：\n\n【日証金・貸借データ】\n貸株：\n融資：\n差引：\n逆日歩：\n読み方：\n\n【需給診断】\n軽い / 普通 / 重い / かなり重い / 人気化中 / 投げ残り注意 / 踏み上げ余地 / 整理進行 のどれか。\n\n【診断理由】\n出来高比、株価方向、買残増減、売残増減、低位株補正を使って説明してください。\n\n【売買への翻訳】\n試し玉可 / 小ロット限定 / 反発確認 / 戻り売り注意 / 信用では触らない のどれに近いか。\n\n【次に見るべき数字】\n次回信用残更新で何が減れば良いか、何が増えると悪いかを整理してください。`;
   }
+  function openChatGPT() { window.location.href = 'chatgpt://'; }
   async function copyCreditPrompt() {
     const text = buildCreditPrompt();
     try {
@@ -3438,7 +3513,8 @@ function CreditBalancePanel({ q, note, onSave, onDelete, onSaveAtlas }) {
     <div className="companyHeader noteHeader">
       <div><div className="smallTitle">信用需給</div><h3>{q.code} {q.name}</h3></div>
       <div className="companyActions compactActions">
-        <button className="sub" title="信用需給調査プロンプトをコピー" onClick={copyCreditPrompt}>需給P</button>
+        <button className="sub researchMain" title="信用需給調査プロンプトをコピー" onClick={copyCreditPrompt}>需給P</button>
+        <button className="sub" title="ChatGPTアプリを開く（未インストール時は反応しません）" onClick={openChatGPT}>App</button>
         <button className="sub" title="JPXから信用データを自動取得" onClick={fetchJpxAuto} disabled={jpxLoading}>{jpxLoading ? 'JPX中' : 'JPXβ'}</button>
         <button title="この銘柄の信用需給を保存" onClick={saveNow}>{saved ? '済' : '保存'}</button>
         {note && <button className="sub dangerMini" title="この銘柄の信用需給メモを削除" onClick={() => { if (window.confirm('この銘柄の信用需給メモを削除しますか？')) onDelete?.(); }}>削除</button>}

@@ -4411,3 +4411,42 @@ body::before{
   .earningsPromptBox textarea,.earningsPasteBox textarea{min-height:220px;font-size:12px;}
   .earningsPromptBox textarea{min-height:280px;}
 }
+
+/* UX24.3N: 調査系ページ統一 + 業績数字優先 */
+.researchUnifiedActions{align-items:center;gap:6px;}
+.fundamentalTrendNote.compactNote{padding:10px 12px;border:1px solid rgba(0,240,255,.18);border-radius:14px;background:rgba(0,18,30,.42);}
+.fundamentalTrendNote.compactNote p{margin:4px 0 0;font-size:12px;line-height:1.5;color:#bfeef5;}
+.earningsNumbers{
+  border:1px solid rgba(0,240,255,.32);
+  background:linear-gradient(135deg,rgba(0,18,28,.76),rgba(14,5,27,.66));
+  border-radius:16px;
+  padding:10px;
+  box-shadow:0 0 22px rgba(0,240,255,.08), inset 0 0 16px rgba(0,240,255,.05);
+}
+.earningsNumbers.empty p{margin:6px 0 0;color:#a9dfe7;font-size:13px;line-height:1.55;}
+.earningsNumberSection{margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,240,255,.16);}
+.earningsNumberSection:first-of-type{margin-top:6px;}
+.earningsNumberHead{display:flex;justify-content:space-between;gap:10px;align-items:baseline;margin-bottom:7px;}
+.earningsNumberHead b{font-weight:500;color:#e8fbff;letter-spacing:.03em;}
+.earningsNumberHead span{font-size:11px;color:#84dae5;text-align:right;line-height:1.35;}
+.earningsNumberSection pre{
+  margin:0;white-space:pre-wrap;word-break:break-word;font-size:12px;line-height:1.55;color:#d8f8ff;
+  padding:9px;border-radius:12px;background:rgba(0,5,10,.46);border:1px solid rgba(0,240,255,.14);
+}
+.earningsTableWrap{overflow-x:auto;border:1px solid rgba(0,240,255,.18);border-radius:12px;background:rgba(0,5,10,.48);}
+.earningsNumberTable{width:100%;min-width:560px;border-collapse:collapse;font-size:11px;color:#e9fbff;}
+.earningsNumberTable th,.earningsNumberTable td{padding:7px 8px;border-bottom:1px solid rgba(0,240,255,.12);text-align:right;white-space:nowrap;}
+.earningsNumberTable th:first-child,.earningsNumberTable td:first-child{text-align:left;color:#7aefff;position:sticky;left:0;background:rgba(0,11,18,.94);}
+.earningsNumberTable th{font-weight:500;color:#fff0b7;background:rgba(255,209,95,.07);}
+.earningsSummaryDetails{
+  border:1px solid rgba(0,240,255,.18);border-radius:14px;background:rgba(2,12,22,.42);padding:8px;
+}
+.earningsSummaryDetails summary{cursor:pointer;color:#c6fbff;font-size:13px;padding:3px 2px;font-weight:500;}
+.earningsSummaryDetails .earningsSummary{margin-top:8px;}
+@media (max-width:780px){
+  .researchUnifiedActions button{min-height:32px;padding:5px 8px;font-size:11px;}
+  .earningsNumberHead{display:block;}
+  .earningsNumberHead span{display:block;text-align:left;margin-top:2px;}
+  .earningsNumberTable{min-width:500px;font-size:10.5px;}
+  .earningsNumberTable th,.earningsNumberTable td{padding:6px 7px;}
+}
