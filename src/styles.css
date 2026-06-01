@@ -4564,3 +4564,64 @@ body::before{
   .earningsMatrix th,.earningsMatrix td{padding:7px 7px;}
   .earningsMatrix th:first-child,.earningsMatrix td:first-child{min-width:86px;}
 }
+
+/* UX24.3Q: Atlas list three-line mobile card + version rename */
+.mobileAtlasListWrap .atlasTwoLineCard,
+.atlasTwoLineCard{
+  padding:10px 10px 10px!important;
+}
+.mobileAtlasListWrap .atlasLineTwo,
+.mobileAtlasListWrap .atlasLineThree,
+.atlasLineTwo,
+.atlasLineThree{
+  display:flex;
+  align-items:center;
+  min-width:0;
+  gap:6px;
+}
+.mobileAtlasListWrap .atlasLineTwo,
+.mobileAtlasListWrap .atlasLineThree,
+.atlasLineTwo,
+.atlasLineThree{
+  margin-top:6px!important;
+}
+.mobileAtlasListWrap .atlasMetaLine,
+.atlasMetaLine{
+  font-size:12px;
+  line-height:1.2;
+}
+.mobileAtlasListWrap .atlasLineTwo .atlasCodeMini,
+.atlasLineTwo .atlasCodeMini,
+.mobileAtlasListWrap .atlasLineTwo .atlasMarketMini,
+.atlasLineTwo .atlasMarketMini,
+.mobileAtlasListWrap .atlasLineTwo .atlasPctMini,
+.atlasLineTwo .atlasPctMini{
+  font-size:12px!important;
+}
+.mobileAtlasListWrap .atlasLineThree .atlasBadgeRow,
+.atlasLineThree .atlasBadgeRow{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  min-width:0;
+  flex:1 1 auto;
+  overflow:hidden;
+}
+.mobileAtlasListWrap .atlasLineThree .atlasFolderTiny,
+.atlasLineThree .atlasFolderTiny,
+.mobileAtlasListWrap .atlasLineThree .atlasTagTiny,
+.atlasLineThree .atlasTagTiny{
+  flex:0 0 auto;
+  font-size:11px!important;
+  max-width:none!important;
+}
+.mobileAtlasListWrap .atlasLineThree .atlasOrderMini,
+.atlasLineThree .atlasOrderMini{
+  margin-left:auto;
+  flex:0 0 auto;
+}
+.mobileAtlasListWrap .atlasLineThree .atlasOrderMini button,
+.atlasLineThree .atlasOrderMini button{
+  width:28px!important;
+  height:28px!important;
+}

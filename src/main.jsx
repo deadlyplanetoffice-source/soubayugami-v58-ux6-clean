@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = 'MDO v58 / UX24.3P';
+const APP_VERSION = 'MDO v58 / UX24.3Q';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -1616,6 +1616,7 @@ function AtlasCompactAccordionRow({ item, idx, total, onOpenItem, onTogglePin, o
   const snippet = item.snippet || (item.companyNote?.raw ? String(item.companyNote.raw).slice(0, 80) : '図鑑メモ未記録');
   const chartValues = q?.closes60 || [];
   const chartBands = q ? [q.bbUpper, q.bbMid, q.bbLower] : [];
+  const tags = normalizeAtlasTags(item.tags);
   return <article className={`atlasListRow compactAccordion atlasTwoLineRow ${item.pinned ? 'pinned' : ''} ${expanded ? 'open' : 'closed'}`}>
     <button className="atlasTwoLineCard" type="button" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded} title="タップでカードを開く">
       <div className="atlasLineOne">
@@ -1623,13 +1624,17 @@ function AtlasCompactAccordionRow({ item, idx, total, onOpenItem, onTogglePin, o
         <span className={name === '名称未取得' ? 'atlasNameMain nameMissing' : 'atlasNameMain'}>{name}</span>
         <span className="atlasOpenHint">{expanded ? '閉' : '開'}</span>
       </div>
-      <div className="atlasLineTwo">
+      <div className="atlasLineTwo atlasMetaLine">
         <span className="atlasCodeMini">{item.code}</span>
         <span className="atlasMarketMini">{q ? yen(q.price) : '価格なし'}</span>
         {q && <span className={`atlasPctMini ${clsBy(q.changePct)}`}>{pct(q.changePct)}</span>}
-        <span className={`atlasFolderTiny ${atlasFolderClass(item.folder)}`}>{item.folder}</span>
-        {normalizeAtlasTags(item.tags).map((tag) => <span key={tag} className={`atlasTagTiny ${atlasTagClass(tag)}`}>{tag}</span>)}
-        {item.earningsNote?.raw && <span className="atlasTagTiny earnings">業績あり</span>}
+      </div>
+      <div className="atlasLineThree atlasMetaLine">
+        <span className="atlasBadgeRow">
+          <span className={`atlasFolderTiny ${atlasFolderClass(item.folder)}`}>{item.folder}</span>
+          {tags.map((tag) => <span key={tag} className={`atlasTagTiny ${atlasTagClass(tag)}`}>{tag}</span>)}
+          {item.earningsNote?.raw && <span className="atlasTagTiny earnings">業績あり</span>}
+        </span>
         <span className="atlasOrderMini" onClick={(e) => e.stopPropagation()}>
           <button onClick={() => onMove(item, -1)} disabled={idx === 0} title="上へ">↑</button>
           <button onClick={() => onMove(item, 1)} disabled={idx === total - 1} title="下へ">↓</button>
@@ -1644,7 +1649,7 @@ function AtlasCompactAccordionRow({ item, idx, total, onOpenItem, onTogglePin, o
       </div>
       <p>{snippet}</p>
       <div className="atlasSecondControls atlasTagControls">
-        <button className={normalizeAtlasTags(item.tags).includes('保有') ? 'atlasTagToggle active hold' : 'atlasTagToggle'} onClick={() => onTagToggle?.(item, '保有')} title="保有タグを切替">保有タグ</button>
+        <button className={tags.includes('保有') ? 'atlasTagToggle active hold' : 'atlasTagToggle'} onClick={() => onTagToggle?.(item, '保有')} title="保有タグを切替">保有タグ</button>
         <select value={item.folder} onChange={(e) => onFolderChange(item, e.target.value)} title="フォルダ変更">
           {folders.map((f) => <option key={f} value={f}>{f}</option>)}
         </select>

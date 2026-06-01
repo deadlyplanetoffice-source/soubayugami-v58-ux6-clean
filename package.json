@@ -1,6 +1,6 @@
 {
-  "name": "soubayugami-kansokuki-v58-ux24-3o-nav-research-cleanup",
-  "version": "58.24.3-o",
+  "name": "soubayugami-kansokuki-v58-ux24-3q-atlas-three-line",
+  "version": "58.24.3-q",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm:server\" \"npm:client\"",
