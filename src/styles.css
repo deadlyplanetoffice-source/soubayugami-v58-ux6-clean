@@ -4736,3 +4736,150 @@ body::before{
 .earningsMetricCard .metricFlow em{
   white-space:nowrap;
 }
+
+
+/* UX24.3V: quarter trend and market expectation as mobile comparison cards */
+.quarterCardsView{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.quarterOneLine{
+  border:1px solid rgba(0,240,255,.28);
+  background:rgba(0,240,255,.06);
+  color:#c6fbff;
+  border-radius:14px;
+  padding:10px 12px;
+  line-height:1.45;
+  font-weight:800;
+}
+.quarterCards{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.quarterCard{
+  border:1px solid rgba(0,240,255,.24);
+  background:linear-gradient(135deg,rgba(0,16,25,.92),rgba(9,5,22,.82));
+  border-radius:16px;
+  overflow:hidden;
+}
+.quarterCard.trend-up{border-color:rgba(85,255,159,.42);box-shadow:0 0 18px rgba(85,255,159,.07);}
+.quarterCard.trend-down{border-color:rgba(255,77,138,.42);box-shadow:0 0 18px rgba(255,77,138,.07);}
+.quarterCard summary{
+  list-style:none;
+  padding:12px;
+  cursor:pointer;
+}
+.quarterCard summary::-webkit-details-marker{display:none;}
+.quarterHead,
+.quarterMain,
+.quarterYoy{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:center;
+}
+.quarterHead b{
+  font-size:17px;
+  color:#f2fdff;
+}
+.quarterHead span{
+  color:#7ee7ff;
+  font-weight:900;
+}
+.quarterMain{
+  margin-top:8px;
+  color:#d6eff8;
+  font-size:14px;
+}
+.quarterMain b{
+  color:#f2fdff;
+  font-size:15px;
+}
+.quarterYoy{
+  margin-top:6px;
+  color:#ffde8a;
+  font-size:13px;
+  justify-content:flex-start;
+  flex-wrap:wrap;
+}
+.quarterDetail{
+  border-top:1px solid rgba(0,240,255,.18);
+  padding:8px 12px 12px;
+  display:grid;
+  gap:7px;
+}
+.quarterDetail div{
+  display:grid;
+  grid-template-columns:110px 1fr;
+  gap:8px;
+}
+.quarterDetail span{
+  color:#7ee7ff;
+  font-size:13px;
+}
+.quarterDetail b{
+  color:#f2fdff;
+  font-size:14px;
+  text-align:right;
+}
+.expectationCardsView{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.expectationCard{
+  border:1px solid rgba(0,240,255,.24);
+  background:rgba(0,16,25,.70);
+  border-radius:16px;
+  padding:12px;
+}
+.expectationCard.verdict{
+  border-color:rgba(255,176,46,.42);
+  box-shadow:0 0 18px rgba(255,176,46,.07);
+}
+.expectationCard.company{
+  border-color:rgba(85,255,159,.32);
+}
+.expectationCard.market{
+  border-color:rgba(0,240,255,.32);
+}
+.expectationCard span{
+  display:inline-flex;
+  color:#7ee7ff;
+  font-size:13px;
+  font-weight:900;
+  margin-bottom:7px;
+}
+.expectationCard ul{
+  margin:0;
+  padding-left:1.1em;
+  color:#d6eff8;
+  line-height:1.65;
+}
+.expectationCard li{
+  margin:3px 0;
+}
+.expectationRawDetails,
+.earningsPlainDetails{
+  border:1px dashed rgba(0,240,255,.22);
+  border-radius:14px;
+  padding:10px 12px;
+  color:#b8eaff;
+}
+.expectationRawDetails summary,
+.earningsPlainDetails summary{
+  cursor:pointer;
+  color:#7ee7ff;
+  font-weight:900;
+}
+.expectationRawDetails pre,
+.earningsPlainDetails pre{
+  white-space:pre-wrap;
+  color:#d6eff8;
+  line-height:1.6;
+  margin:10px 0 0;
+  font-family:inherit;
+  font-size:14px;
+}

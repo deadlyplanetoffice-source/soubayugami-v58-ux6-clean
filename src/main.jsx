@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = 'MDO v58 / UX24.3U';
+const APP_VERSION = 'MDO v58 / UX24.3V';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -2647,8 +2647,139 @@ function EarningsMetricCard({ metric }) {
   </details>;
 }
 
+
+function getEarningsCell(row = [], idx = -1) {
+  if (idx < 0) return '—';
+  return normalizeEarningsDisplayValue(row[idx] || '—');
+}
+
+function findEarningsColumn(rawHeader = [], normalized = [], patterns = []) {
+  for (let i = 0; i < rawHeader.length; i += 1) {
+    const raw = String(rawHeader[i] || '');
+    const norm = String(normalized[i] || '');
+    if (patterns.every((p) => p.test(raw) || p.test(norm))) return i;
+  }
+  return -1;
+}
+
+function buildQuarterCards(table) {
+  if (!table?.header?.length || !table?.body?.length) return [];
+  const rawHeader = table.header.map((h) => String(h || '').trim());
+  const header = normalizeEarningsHeader(table.header);
+  const pIdxRaw = header.findIndex((h) => h === '期' || /期|年度|四半期/.test(String(h)));
+  const pIdx = pIdxRaw >= 0 ? pIdxRaw : 0;
+  const idx = {
+    sales: findEarningsColumn(rawHeader, header, [/売上/]),
+    op: findEarningsColumn(rawHeader, header, [/営業/, /利益/]),
+    ordinary: findEarningsColumn(rawHeader, header, [/経常|税引前|税前/]),
+    net: findEarningsColumn(rawHeader, header, [/純利益|当期利益|親会社/]),
+    margin: findEarningsColumn(rawHeader, header, [/営業/, /率/]),
+    salesYoy: findEarningsColumn(rawHeader, header, [/売上/, /YoY|前年比|前年|YOY/i]),
+    opYoy: findEarningsColumn(rawHeader, header, [/営業/, /YoY|前年比|前年|YOY/i]),
+  };
+  if (idx.salesYoy < 0 || idx.opYoy < 0) {
+    const yoyCandidates = rawHeader.map((h, i) => ({ h, i })).filter(({ h }) => /YoY|前年比|前年|YOY/i.test(h));
+    if (idx.salesYoy < 0 && yoyCandidates[0]) idx.salesYoy = yoyCandidates[0].i;
+    if (idx.opYoy < 0 && yoyCandidates[1]) idx.opYoy = yoyCandidates[1].i;
+  }
+  const body = table.body.slice(-8).reverse(); // 新しい四半期を上に寄せる
+  return body.map((row, i) => {
+    const period = row[pIdx] || `Q${i + 1}`;
+    const sales = getEarningsCell(row, idx.sales);
+    const op = getEarningsCell(row, idx.op);
+    const ordinary = getEarningsCell(row, idx.ordinary);
+    const net = getEarningsCell(row, idx.net);
+    const margin = getEarningsCell(row, idx.margin);
+    const salesYoy = getEarningsCell(row, idx.salesYoy);
+    const opYoy = getEarningsCell(row, idx.opYoy);
+    const marginNum = parseEarningsNumeric(margin);
+    const opYoyNum = parseEarningsNumeric(opYoy);
+    const cls = opYoyNum != null ? (opYoyNum > 0 ? 'up' : opYoyNum < 0 ? 'down' : 'flat') : (marginNum != null && marginNum >= 25 ? 'up' : '');
+    return { period, sales, op, ordinary, net, margin, salesYoy, opYoy, cls };
+  });
+}
+
+function quarterSummary(cards = []) {
+  if (!cards.length) return '四半期データ未抽出';
+  const latest = cards[0];
+  const prev = cards[1];
+  const salesYoy = parseEarningsNumeric(latest.salesYoy);
+  const opYoy = parseEarningsNumeric(latest.opYoy);
+  const margin = parseEarningsNumeric(latest.margin);
+  const parts = [];
+  if (salesYoy != null) parts.push(salesYoy >= 0 ? '売上は増収' : '売上は減収');
+  if (opYoy != null) parts.push(opYoy >= 0 ? '営業利益は増益' : '営業利益は減益');
+  if (margin != null) parts.push(margin >= 30 ? '利益率は高水準' : margin >= 20 ? '利益率は良好' : '利益率は要確認');
+  if (prev) {
+    const latestOp = parseEarningsNumeric(latest.op);
+    const prevOp = parseEarningsNumeric(prev.op);
+    if (latestOp != null && prevOp != null) parts.push(latestOp >= prevOp ? '直近は改善' : '直近は鈍化');
+  }
+  return parts.join(' / ') || '直近四半期の流れを確認';
+}
+
+function QuarterCardsView({ table }) {
+  const cards = buildQuarterCards(table);
+  if (!cards.length) return <EarningsMetricMatrix table={table} />;
+  return <div className="quarterCardsView">
+    <div className="quarterOneLine">{quarterSummary(cards)}</div>
+    <div className="quarterCards">
+      {cards.map((c, i) => <details className={`quarterCard trend-${c.cls || 'flat'}`} key={`${c.period}-${i}`}>
+        <summary>
+          <div className="quarterHead"><b>{c.period}</b><span>{c.margin}</span></div>
+          <div className="quarterMain"><span>売上 <b>{c.sales}</b></span><span>営利 <b>{c.op}</b></span></div>
+          <div className="quarterYoy"><span>売上YoY {c.salesYoy}</span><span>営利YoY {c.opYoy}</span></div>
+        </summary>
+        <div className="quarterDetail">
+          <div><span>経常/税前</span><b>{c.ordinary}</b></div>
+          <div><span>純利益</span><b>{c.net}</b></div>
+          <div><span>営業利益率</span><b>{c.margin}</b></div>
+          <div><span>売上YoY</span><b>{c.salesYoy}</b></div>
+          <div><span>営業利益YoY</span><b>{c.opYoy}</b></div>
+        </div>
+      </details>)}
+    </div>
+  </div>;
+}
+
+function takeExpectationLines(text = '', keys = []) {
+  const lines = String(text || '').split('\n').map((x) => x.trim()).filter(Boolean);
+  const picked = [];
+  for (const line of lines) {
+    if (keys.some((k) => line.includes(k))) picked.push(line);
+  }
+  return picked.slice(0, 8);
+}
+
+function MarketExpectationCardsView({ text = '' }) {
+  const raw = String(text || '').trim();
+  if (!raw) return <p className="mutedText">市場期待差は未抽出です。</p>;
+  const lines = raw.split('\n').map((x) => x.trim()).filter(Boolean);
+  const company = lines.filter((l) => /会社予想|修正予想|期初|修正幅|上方|下方/.test(l)).slice(0, 8);
+  const market = lines.filter((l) => /四季報|コンセンサス|IFIS|アナリスト|市場|予想|未確認/.test(l) && !company.includes(l)).slice(0, 8);
+  const judgement = lines.filter((l) => /判定|業績悪化|期待値調整|売られすぎ|強い|壊れて|失望|再評価/.test(l)).slice(0, 5);
+  const renderList = (arr, fallback) => arr.length ? arr.map((l, i) => <li key={i}>{l}</li>) : <li>{fallback}</li>;
+  return <div className="expectationCardsView">
+    <section className="expectationCard verdict">
+      <span>判定</span>
+      <ul>{renderList(judgement, '判定文は未抽出。詳細本文で確認。')}</ul>
+    </section>
+    <section className="expectationCard company">
+      <span>会社予想</span>
+      <ul>{renderList(company, '会社予想の比較は未抽出。')}</ul>
+    </section>
+    <section className="expectationCard market">
+      <span>市場期待</span>
+      <ul>{renderList(market, '四季報・コンセンサスは未確認。')}</ul>
+    </section>
+    <details className="expectationRawDetails"><summary>詳細本文を開く</summary><pre>{raw}</pre></details>
+  </div>;
+}
+
+
 function EarningsMetricCardsView({ table, kind = 'annual' }) {
-  const cards = buildEarningsMetricCards(table, kind === 'quarter' ? 5 : 7);
+  if (kind === 'quarter') return <QuarterCardsView table={table} />;
+  const cards = buildEarningsMetricCards(table, 7);
   if (!cards.length) return <EarningsMetricMatrix table={table} />;
   return <div className="earningsMetricCards">{cards.map((metric) => <EarningsMetricCard metric={metric} key={`${kind}-${metric.name}`} />)}</div>;
 }
@@ -2665,11 +2796,18 @@ function EarningsNumbersView({ raw = '', summary = {} }) {
   const renderSection = (sec, open = false) => {
     if (!sec || !String(sec.body || '').trim()) return null;
     const plain = String(sec.body || '').replace(/\|?\s*:?-{2,}:?\s*\|/g, '').trim();
-    const mainContent = sec.tables.length ? sec.tables.slice(0, 1).map((table, i) => <EarningsMetricCardsView table={table} kind={sec.key} key={i} />) : <pre>{clipText(plain, 700)}</pre>;
+    let mainContent;
+    if (sec.key === 'expectation') {
+      mainContent = <MarketExpectationCardsView text={sec.body} />;
+    } else if (sec.tables.length) {
+      mainContent = sec.tables.slice(0, 1).map((table, i) => <EarningsMetricCardsView table={table} kind={sec.key} key={i} />);
+    } else {
+      mainContent = <details className="earningsPlainDetails"><summary>詳細本文を開く</summary><pre>{plain}</pre></details>;
+    }
     const tableContent = sec.tables.length ? sec.tables.slice(0, 2).map((table, i) => <EarningsMetricMatrix table={table} key={i} />) : null;
     return <details className="earningsNumberDetails earningsCardDetails" key={sec.key} open={open}><summary><b>{sec.title}</b><span>{sec.hint}</span></summary>{mainContent}{tableContent && <details className="earningsRawTableDetails"><summary>表で見る</summary>{tableContent}</details>}</details>;
   };
-  return <div className="earningsNumbers"><div className="cardMiniHead"><b>数字の変化</b><span>推移カード優先</span></div><EarningsCompactSummary summary={summary} />{renderSection(annual, true)}{renderSection(quarter, true)}{others.map((sec) => renderSection(sec, false))}</div>;
+  return <div className="earningsNumbers"><div className="cardMiniHead"><b>数字の変化</b><span>比較カード優先</span></div><EarningsCompactSummary summary={summary} />{renderSection(annual, true)}{renderSection(quarter, true)}{others.map((sec) => renderSection(sec, sec.key === 'expectation'))}</div>;
 }
 
 function buildEarningsPrompt(q = {}) {
