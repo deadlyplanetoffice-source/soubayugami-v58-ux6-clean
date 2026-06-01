@@ -4,7 +4,7 @@ import './styles.css';
 
 // Same-origin API. Works on Render/Railway/phone URL and also with local Vite proxy if configured.
 const API = '';
-const APP_VERSION = 'MDO v58 / UX24.3X';
+const APP_VERSION = 'MDO v58 / UX24.3Z';
 
 const DEFAULT_CODES = [
   { code: '3687', name: 'フィックスターズ', sector: 'AI/量子' },
@@ -2751,7 +2751,7 @@ function takeExpectationLines(text = '', keys = []) {
   return picked.slice(0, 8);
 }
 
-function compactExpectationText(lines = [], max = 72) {
+function compactExpectationText(lines = [], max = 96) {
   const s = lines.join(' / ').replace(/^判定\s*/g, '').trim();
   return clipText(s || '未抽出', max);
 }
@@ -2763,22 +2763,35 @@ function MarketExpectationCardsView({ text = '' }) {
   const company = lines.filter((l) => /会社予想|修正予想|期初|修正幅|上方|下方/.test(l)).slice(0, 6);
   const market = lines.filter((l) => /四季報|コンセンサス|IFIS|アナリスト|市場|予想|未確認/.test(l) && !company.includes(l)).slice(0, 6);
   const judgement = lines.filter((l) => /判定|業績悪化|期待値調整|売られすぎ|強い|壊れて|失望|再評価/.test(l)).slice(0, 4);
-  const blocks = [
-    { key: 'verdict', title: '判定', mark: '↘', lines: judgement, fallback: '判定文は未抽出。詳細本文で確認。' },
-    { key: 'company', title: '会社予想', mark: '↗', lines: company, fallback: '会社予想の比較は未抽出。' },
-    { key: 'market', title: '市場期待', mark: '→', lines: market, fallback: '四季報・コンセンサスは未確認。' },
+
+  const rows = [
+    { key: 'verdict', label: '判定', mark: '↘', value: compactExpectationText(judgement.length ? judgement : ['判定文は未抽出。詳細本文で確認。'], 110), lines: judgement },
+    { key: 'company', label: '会社予想', mark: '↗', value: compactExpectationText(company.length ? company : ['会社予想の比較は未抽出。'], 110), lines: company },
+    { key: 'market', label: '市場期待', mark: '→', value: compactExpectationText(market.length ? market : ['四季報・コンセンサスは未確認。'], 110), lines: market },
   ];
-  return <div className="expectationMiniCards">
-    {blocks.map((b) => <details className={`expectationMiniCard ${b.key}`} key={b.key}>
-      <summary>
-        <div className="metricTop"><b>{b.title}</b><span>{b.mark}</span></div>
-        <div className="metricFlow expectationFlow"><em>{compactExpectationText(b.lines.length ? b.lines : [b.fallback], 80)}</em></div>
-        <div className="metricJudge">{b.lines.length ? '抽出あり' : '未抽出'}</div>
-      </summary>
-      <div className="metricDetail expectationDetail">
-        {(b.lines.length ? b.lines : [b.fallback]).map((l, i) => <div key={i}><span>{i + 1}</span><b>{l}</b></div>)}
-      </div>
-    </details>)}
+
+  return <div className="expectationTableView">
+    <table className="expectationMiniTable">
+      <tbody>
+        {rows.map((r) => <tr className={r.key} key={r.key}>
+          <th><span>{r.label}</span><em>{r.mark}</em></th>
+          <td>{r.value}</td>
+        </tr>)}
+      </tbody>
+    </table>
+
+    <details className="expectationDetailTable">
+      <summary>抽出内容を表で開く</summary>
+      <table>
+        <tbody>
+          {rows.map((r) => <tr key={`detail-${r.key}`}>
+            <th>{r.label}</th>
+            <td>{(r.lines.length ? r.lines : [r.value]).map((l, i) => <p key={i}>{l}</p>)}</td>
+          </tr>)}
+        </tbody>
+      </table>
+    </details>
+
     <details className="expectationRawDetails"><summary>詳細本文を開く</summary><pre>{raw}</pre></details>
   </div>;
 }
@@ -2831,6 +2844,20 @@ function QuarterYoyChipRow({ label, values = [], periods = [], kind = 'yoy' }) {
   </div>;
 }
 
+function quarterMoveLabel(latest = '', prev = '', kind = 'yoy') {
+  const a = parseEarningsNumeric(latest);
+  const b = parseEarningsNumeric(prev);
+  if (a == null || b == null) return '未判定';
+  if (kind === 'margin') {
+    if (a >= b + 1) return '改善';
+    if (a <= b - 1) return '低下';
+    return '横ばい';
+  }
+  if (a >= b + 3) return '加速';
+  if (a <= b - 3) return '鈍化';
+  return '横ばい';
+}
+
 function QuarterYoyChipsView({ table }) {
   const cards = buildQuarterCards(table).slice().reverse(); // 左=古い、右=最新
   if (!cards.length) return <EarningsMetricMatrix table={table} />;
@@ -2840,20 +2867,44 @@ function QuarterYoyChipsView({ table }) {
   const opYoy = tail.map((c) => c.opYoy || '—');
   const margin = tail.map((c) => c.margin || '—');
 
-  const latestSales = parseEarningsNumeric(salesYoy[salesYoy.length - 1]);
-  const latestOp = parseEarningsNumeric(opYoy[opYoy.length - 1]);
-  const latestMargin = parseEarningsNumeric(margin[margin.length - 1]);
-  const summary = [
-    latestSales != null ? (latestSales >= 0 ? '売上増収' : '売上減収') : '',
-    latestOp != null ? (latestOp >= 0 ? '営利増益' : '営利減益') : '',
-    latestMargin != null ? (latestMargin >= 30 ? '利益率高水準' : latestMargin >= 20 ? '利益率良好' : '利益率要確認') : '',
-  ].filter(Boolean).join(' / ') || '四半期YoYを確認';
+  const latestIdx = tail.length - 1;
+  const prevIdx = Math.max(0, latestIdx - 1);
+  const rows = [
+    { key: 'sales', label: '売上YoY', latest: salesYoy[latestIdx], prev: salesYoy[prevIdx], values: salesYoy, kind: 'yoy' },
+    { key: 'profit', label: '営利YoY', latest: opYoy[latestIdx], prev: opYoy[prevIdx], values: opYoy, kind: 'yoy' },
+    { key: 'margin', label: '利益率', latest: margin[latestIdx], prev: margin[prevIdx], values: margin, kind: 'margin' },
+  ].map((r) => ({ ...r, move: quarterMoveLabel(r.latest, r.prev, r.kind) }));
 
-  return <div className="quarterYoyPanel">
+  const summary = rows.map((r) => `${r.label}:${r.move}`).join(' / ');
+
+  return <div className="quarterYoyTableView">
     <div className="quarterYoySummary">{summary}</div>
-    <QuarterYoyChipRow label="売上YoY" values={salesYoy} periods={periods} kind="sales" />
-    <QuarterYoyChipRow label="営利YoY" values={opYoy} periods={periods} kind="profit" />
-    <QuarterYoyChipRow label="利益率" values={margin} periods={periods} kind="margin" />
+    <table className="quarterYoyMiniTable">
+      <thead><tr><th>項目</th><th>最新</th><th>前期</th><th>流れ</th></tr></thead>
+      <tbody>
+        {rows.map((r) => <tr className={`${r.key} ${/鈍化|低下/.test(r.move) ? 'weak' : /改善|加速/.test(r.move) ? 'strong' : ''}`} key={r.key}>
+          <th>{r.label}</th>
+          <td className={yoyClass(r.latest)}>{formatYoyChip(r.latest)}</td>
+          <td className={yoyClass(r.prev)}>{formatYoyChip(r.prev)}</td>
+          <td><span>{r.move}</span></td>
+        </tr>)}
+      </tbody>
+    </table>
+
+    <details className="quarterYoyHistoryDetails">
+      <summary>推移を開く</summary>
+      <div className="quarterYoyHistory">
+        {rows.map((r) => <div className="quarterYoyHistoryRow" key={`hist-${r.key}`}>
+          <b>{r.label}</b>
+          <div>
+            {r.values.map((v, i) => <span className={`${yoyClass(v)} ${i === latestIdx ? 'recent' : ''}`} key={`${r.key}-${i}`}>
+              <em>{formatYoyChip(v)}</em><small>{periods[i] || ''}</small>
+            </span>)}
+          </div>
+        </div>)}
+      </div>
+    </details>
+
     <details className="quarterYoyRawDetails">
       <summary>四半期の元表を見る</summary>
       <EarningsMetricMatrix table={table} />

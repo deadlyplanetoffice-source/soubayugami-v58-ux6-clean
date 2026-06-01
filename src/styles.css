@@ -5040,3 +5040,198 @@ body::before{
   color:#7ee7ff;
   font-weight:900;
 }
+
+
+/* UX24.3Z: quarter YoY and market expectation use compact readable vertical tables */
+.quarterYoyTableView{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.quarterYoyMiniTable{
+  width:100%;
+  border-collapse:separate;
+  border-spacing:0;
+  overflow:hidden;
+  border:1px solid rgba(0,240,255,.28);
+  border-radius:16px;
+  background:linear-gradient(135deg,rgba(0,16,25,.94),rgba(9,5,22,.84));
+}
+.quarterYoyMiniTable th,
+.quarterYoyMiniTable td{
+  padding:10px 8px;
+  border-top:1px solid rgba(0,240,255,.14);
+  text-align:right;
+  vertical-align:middle;
+  color:#d6eff8;
+  font-size:13px;
+}
+.quarterYoyMiniTable thead th{
+  border-top:0;
+  color:#7ee7ff;
+  font-size:12px;
+  font-weight:900;
+  background:rgba(0,240,255,.055);
+}
+.quarterYoyMiniTable tbody th{
+  text-align:left;
+  color:#7ee7ff;
+  font-weight:900;
+  white-space:nowrap;
+}
+.quarterYoyMiniTable td.pos{color:#baffd4;}
+.quarterYoyMiniTable td.neg{color:#ffc5d8;}
+.quarterYoyMiniTable td.flat,.quarterYoyMiniTable td.neutral{color:#d6eff8;}
+.quarterYoyMiniTable td span{
+  display:inline-flex;
+  border-radius:999px;
+  padding:3px 8px;
+  border:1px solid rgba(120,169,186,.26);
+  color:#d6eff8;
+  background:rgba(120,169,186,.08);
+  font-weight:900;
+}
+.quarterYoyMiniTable tr.strong td span{
+  border-color:rgba(85,255,159,.38);
+  color:#baffd4;
+  background:rgba(85,255,159,.10);
+}
+.quarterYoyMiniTable tr.weak td span{
+  border-color:rgba(255,77,138,.40);
+  color:#ffc5d8;
+  background:rgba(255,77,138,.11);
+}
+.quarterYoyHistoryDetails{
+  border:1px dashed rgba(0,240,255,.24);
+  border-radius:14px;
+  padding:10px 12px;
+}
+.quarterYoyHistoryDetails summary{
+  cursor:pointer;
+  color:#7ee7ff;
+  font-weight:900;
+}
+.quarterYoyHistory{
+  margin-top:10px;
+  display:grid;
+  gap:10px;
+}
+.quarterYoyHistoryRow{
+  display:grid;
+  gap:6px;
+}
+.quarterYoyHistoryRow b{
+  color:#f2fdff;
+  font-size:14px;
+}
+.quarterYoyHistoryRow div{
+  display:flex;
+  gap:7px;
+  overflow-x:auto;
+  padding-bottom:2px;
+}
+.quarterYoyHistoryRow span{
+  flex:0 0 auto;
+  min-width:62px;
+  border:1px solid rgba(120,169,186,.26);
+  border-radius:12px;
+  padding:6px 7px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:3px;
+  background:rgba(120,169,186,.08);
+}
+.quarterYoyHistoryRow span.pos{border-color:rgba(85,255,159,.34);background:rgba(85,255,159,.10);}
+.quarterYoyHistoryRow span.neg{border-color:rgba(255,77,138,.38);background:rgba(255,77,138,.10);}
+.quarterYoyHistoryRow span.recent{border-color:rgba(255,176,46,.70);box-shadow:0 0 16px rgba(255,176,46,.14);}
+.quarterYoyHistoryRow em{
+  font-style:normal;
+  color:#d6eff8;
+  font-size:13px;
+  font-weight:900;
+}
+.quarterYoyHistoryRow small{
+  color:#8fb8c5;
+  font-size:10px;
+  white-space:nowrap;
+}
+.expectationTableView{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.expectationMiniTable{
+  width:100%;
+  border-collapse:separate;
+  border-spacing:0;
+  overflow:hidden;
+  border:1px solid rgba(0,240,255,.28);
+  border-radius:16px;
+  background:linear-gradient(135deg,rgba(0,16,25,.94),rgba(9,5,22,.84));
+}
+.expectationMiniTable tr + tr th,
+.expectationMiniTable tr + tr td{
+  border-top:1px solid rgba(0,240,255,.16);
+}
+.expectationMiniTable th{
+  width:92px;
+  vertical-align:top;
+  padding:11px 9px 10px 12px;
+  color:#7ee7ff;
+  text-align:left;
+  background:rgba(0,240,255,.045);
+}
+.expectationMiniTable th span{
+  display:block;
+  font-size:13px;
+  font-weight:900;
+  white-space:nowrap;
+}
+.expectationMiniTable th em{
+  display:inline-flex;
+  margin-top:5px;
+  font-style:normal;
+  color:#ffde8a;
+  font-size:13px;
+}
+.expectationMiniTable td{
+  padding:11px 12px 10px 8px;
+  color:#d6eff8;
+  line-height:1.55;
+  font-size:14px;
+}
+.expectationMiniTable tr.verdict th{color:#ffde8a;}
+.expectationMiniTable tr.company th{color:#baffd4;}
+.expectationMiniTable tr.market th{color:#c6fbff;}
+.expectationDetailTable{
+  border:1px dashed rgba(0,240,255,.24);
+  border-radius:14px;
+  padding:10px 12px;
+}
+.expectationDetailTable summary{
+  cursor:pointer;
+  color:#7ee7ff;
+  font-weight:900;
+}
+.expectationDetailTable table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:10px;
+}
+.expectationDetailTable th,
+.expectationDetailTable td{
+  border-top:1px solid rgba(0,240,255,.14);
+  padding:9px 4px;
+  vertical-align:top;
+}
+.expectationDetailTable th{
+  width:76px;
+  color:#7ee7ff;
+  text-align:left;
+}
+.expectationDetailTable td p{
+  margin:0 0 6px 0;
+  color:#d6eff8;
+  line-height:1.55;
+}
